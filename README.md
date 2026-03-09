@@ -1,60 +1,32 @@
-MPAS-v8.2.2
-====
+**MPAS-Urban (HKUST)**
+MPAS-Urban is a HKUST-modified version of the MPAS-Atmosphere core based on the official MPAS-Model v8.2.2 release.
+In this version, the Noah-MP land surface scheme is extended to include the Single-Layer Urban Canopy Model (SLUCM) for urban climate applications.
 
-The Model for Prediction Across Scales (MPAS) is a collaborative project for
-developing atmosphere, ocean, and other earth-system simulation components for
-use in climate, regional climate, and weather studies. The primary development
-partners are the climate modeling group at Los Alamos National Laboratory
-(COSIM) and the National Center for Atmospheric Research. Both primary
-partners are responsible for the MPAS framework, operators, and tools common to
-the applications; LANL has primary responsibility for the ocean model, and NCAR
-has primary responsibility for the atmospheric model.
+Key features
+Based on official MPAS-Model v8.2.2 atmosphere core (Noah-MP land surface scheme).
 
-The MPAS framework facilitates the rapid development and prototyping of models
-by providing infrastructure typically required by model developers, including
-high-level data types, communication routines, and I/O routines. By using MPAS,
-developers can leverage pre-existing code and focus more on development of
-their model.
+SLUCM urban canopy scheme has been added and coupled to Noah-MP in the atmosphere physics:
 
-BUILDING
-========
+Urban surface energy balance and canopy parameters are computed by SLUCM.
 
-This README is provided as a brief introduction to the MPAS framework. It does
-not provide details about each specific model, nor does it provide building
-instructions.
+New diagnostics for urban surface variables are available in MPAS output.
 
-For information about building and running each core, please refer to each
-core's user's guide, which can be found at the following web sites:
+At present, BEP/BEM is not coupled in this branch – only SLUCM is available as the urban scheme.
 
-[MPAS-Atmosphere](http://mpas-dev.github.io/atmosphere/atmosphere_download.html)
+The default configuration uses Local Climate Zones (LCZ) to describe urban categories:
 
-[MPAS-Albany Land Ice](http://mpas-dev.github.io/land_ice/download.html)
+Global LCZ-based datasets for MPAS-Urban will be uploaded later and documented together with preprocessing tools.
 
-[MPAS-Ocean](http://mpas-dev.github.io/ocean/releases.html)
+How to enable SLUCM
+To run MPAS-Urban with SLUCM, turn on the urban physics switch in namelist.atmosphere:
 
-[MPAS-Seaice](http://mpas-dev.github.io/sea_ice/releases.html)
+config_urban_physics = .true.
 
+When config_urban_physics = .true., SLUCM is used as the default urban canopy scheme.
 
-Code Layout
-----------
+When config_urban_physics = .false., the model falls back to the standard Noah-MP land surface configuration without urban canopy processes.
 
-Within the MPAS repository, code is laid out as follows. Sub-directories are
-only described below the src directory.
+Usage notes
+Build and run instructions for the general MPAS framework and MPAS-Atmosphere core are unchanged from the official v8.2.2 release; please refer to the MPAS-Atmosphere user guide and documentation on the MPAS-Dev website.
 
-	MPAS-Model
-	├── src
-	│   ├── driver -- Main driver for MPAS in stand-alone mode (Shared)
-	│   ├── external -- External software for MPAS (Shared)
-	│   ├── framework -- MPAS Framework (Includes DDT Descriptions, and shared routines. Shared)
-	│   ├── operators -- MPAS Opeartors (Includes Operators for MPAS meshes. Shared)
-	│   ├── tools -- Empty directory for include files that Registry generates (Shared)
-	│   │   ├── registry -- Code for building Registry.xml parser (Shared)
-	│   │   └── input_gen -- Code for generating streams and namelist files (Shared)
-	│   └── core_* -- Individual model cores.
-	│       └── inc -- Empty directory for include files that Registry generates
-	├── testing_and_setup -- Tools for setting up configurations and test cases (Shared)
-	└── default_inputs -- Copies of default stream and namelists files (Shared)
-
-Model cores are typically developed independently. For information about
-building and running a particular core, please refer to that core's user's
-guide.
+This repository only documents the urban extensions on top of v8.2.2; all other model components and workflows follow the official MPAS distribution.
