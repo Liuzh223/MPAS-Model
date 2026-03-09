@@ -196,8 +196,10 @@ contains
     ! OUT (with no Noah LSM equivalent) (as defined in WRF)   
     if ( allocated (NoahmpIO%t2mvxy)     ) deallocate ( NoahmpIO%t2mvxy             ) ! 2m temperature of vegetation part
     if ( allocated (NoahmpIO%t2mbxy)     ) deallocate ( NoahmpIO%t2mbxy             ) ! 2m temperature of bare ground part
+    if ( allocated (NoahmpIO%t2mxy)      ) deallocate ( NoahmpIO%t2mxy              ) ! 2m grid-mean temperature !cye add 2025-02-25
     if ( allocated (NoahmpIO%q2mvxy)     ) deallocate ( NoahmpIO%q2mvxy             ) ! 2m mixing ratio of vegetation part
     if ( allocated (NoahmpIO%q2mbxy)     ) deallocate ( NoahmpIO%q2mbxy             ) ! 2m mixing ratio of bare ground part
+    if ( allocated (NoahmpIO%q2mxy)      ) deallocate ( NoahmpIO%q2mxy              ) ! 2m grid-mean mixing ratio !cye add 2025-02-25
     if ( allocated (NoahmpIO%tradxy)     ) deallocate ( NoahmpIO%tradxy             ) ! surface radiative temperature (K)
     if ( allocated (NoahmpIO%neexy)      ) deallocate ( NoahmpIO%neexy              ) ! net ecosys exchange (g/m2/s CO2)
     if ( allocated (NoahmpIO%gppxy)      ) deallocate ( NoahmpIO%gppxy              ) ! gross primary assimilation [g/m2/s C]
@@ -348,6 +350,27 @@ contains
        if ( allocated (NoahmpIO%tc_urb2d)     ) deallocate ( NoahmpIO%tc_urb2d      )
        if ( allocated (NoahmpIO%qc_urb2d)     ) deallocate ( NoahmpIO%qc_urb2d      )
        if ( allocated (NoahmpIO%uc_urb2d)     ) deallocate ( NoahmpIO%uc_urb2d      )
+
+       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
+      if (  allocated (NoahmpIO%SR_URB2D   )     ) deallocate ( NoahmpIO%SR_URB2D       )
+      if (  allocated (NoahmpIO%SB_URB2D   )     ) deallocate ( NoahmpIO%SB_URB2D       )
+      if (  allocated (NoahmpIO%SG_URB2D   )     ) deallocate ( NoahmpIO%SG_URB2D       )
+      if (  allocated (NoahmpIO%RR_URB2D   )     ) deallocate ( NoahmpIO%RR_URB2D       )
+      if (  allocated (NoahmpIO%RB_URB2D   )     ) deallocate ( NoahmpIO%RB_URB2D       )
+      if (  allocated (NoahmpIO%RG_URB2D   )     ) deallocate ( NoahmpIO%RG_URB2D       )
+      if (  allocated (NoahmpIO%HR_URB2D   )     ) deallocate ( NoahmpIO%HR_URB2D       )
+      if (  allocated (NoahmpIO%HB_URB2D   )     ) deallocate ( NoahmpIO%HB_URB2D       )
+      if (  allocated (NoahmpIO%HG_URB2D   )     ) deallocate ( NoahmpIO%HG_URB2D       )
+      if (  allocated (NoahmpIO%ELER_URB2D )     ) deallocate ( NoahmpIO%ELER_URB2D     )
+      if (  allocated (NoahmpIO%ELEB_URB2D )     ) deallocate ( NoahmpIO%ELEB_URB2D     )
+      if (  allocated (NoahmpIO%ELEG_URB2D )     ) deallocate ( NoahmpIO%ELEG_URB2D     )
+      if (  allocated (NoahmpIO%G0R_URB2D  )     ) deallocate ( NoahmpIO%G0R_URB2D      )
+      if (  allocated (NoahmpIO%G0B_URB2D  )     ) deallocate ( NoahmpIO%G0B_URB2D      )
+      if (  allocated (NoahmpIO%G0G_URB2D  )     ) deallocate ( NoahmpIO%G0G_URB2D      )
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
+
+
+
        if ( allocated (NoahmpIO%xxxr_urb2d)   ) deallocate ( NoahmpIO%xxxr_urb2d    )
        if ( allocated (NoahmpIO%xxxb_urb2d)   ) deallocate ( NoahmpIO%xxxb_urb2d    )
        if ( allocated (NoahmpIO%xxxg_urb2d)   ) deallocate ( NoahmpIO%xxxg_urb2d    )
@@ -359,6 +382,9 @@ contains
        if ( allocated (NoahmpIO%gz1oz0_urb2d) ) deallocate ( NoahmpIO%gz1oz0_urb2d  )
        if ( allocated (NoahmpIO%akms_urb2d)   ) deallocate ( NoahmpIO%akms_urb2d    )
        if ( allocated (NoahmpIO%th2_urb2d)    ) deallocate ( NoahmpIO%th2_urb2d     )
+       if ( allocated (NoahmpIO%u10)    ) deallocate ( NoahmpIO%u10     )
+       if ( allocated (NoahmpIO%v10)    ) deallocate ( NoahmpIO%v10     )
+       if ( allocated (NoahmpIO%th2m)    ) deallocate ( NoahmpIO%th2m     )
        if ( allocated (NoahmpIO%q2_urb2d)     ) deallocate ( NoahmpIO%q2_urb2d      )
        if ( allocated (NoahmpIO%ust_urb2d)    ) deallocate ( NoahmpIO%ust_urb2d     )
        if ( allocated (NoahmpIO%cmcr_urb2d)   ) deallocate ( NoahmpIO%cmcr_urb2d    )

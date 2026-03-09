@@ -360,10 +360,10 @@ intel-mpi:   # BUILDTARGET Intel compiler suite with Intel MPI library
 	"CC_SERIAL = icc" \
 	"CXX_SERIAL = icpc" \
 	"FFLAGS_PROMOTION = -real-size 64" \
-	"FFLAGS_OPT = -O3 -convert big_endian -free -align array64byte" \
-	"CFLAGS_OPT = -O3" \
-	"CXXFLAGS_OPT = -O3" \
-	"LDFLAGS_OPT = -O3" \
+	"FFLAGS_OPT = -O2 -g -traceback  -convert big_endian -free -align array64byte -fpe0 -fp-model precise -ftz -no-fma" \
+	"CFLAGS_OPT = -O2" \
+	"CXXFLAGS_OPT = -O2" \
+	"LDFLAGS_OPT = -O2" \
 	"FFLAGS_DEBUG = -g -convert big_endian -free -CU -CB -check all -fpe0 -traceback" \
 	"CFLAGS_DEBUG = -g -traceback" \
 	"CXXFLAGS_DEBUG = -g -traceback" \

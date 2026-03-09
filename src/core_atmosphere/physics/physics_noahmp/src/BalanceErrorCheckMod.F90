@@ -231,6 +231,11 @@ contains
     EnergyBalanceError = RadSwAbsVeg + RadSwAbsGrd + HeatPrecipAdvSfc -                     &
                         (RadLwNetSfc + HeatSensibleSfc + HeatLatentCanopy + HeatLatentGrd + &
                          HeatLatentTransp + HeatGroundTot + HeatLatentIrriEvap + HeatCanStorageChg)
+                         
+
+                        !         NoahmpIO%LH(I) = noahmp%energy%flux%HeatLatentGrd + noahmp%energy%flux%HeatLatentCanopy + &
+                        ! noahmp%energy%flux%HeatLatentTransp + noahmp%energy%flux%HeatLatentIrriEvap 
+
     ! print out diagnostics when error is large
     if ( abs(EnergyBalanceError) > 0.01 ) then
        write(*,*) 'EnergyBalanceError = ', EnergyBalanceError, ' at GridIndexI,GridIndexJ: ', GridIndexI, GridIndexJ

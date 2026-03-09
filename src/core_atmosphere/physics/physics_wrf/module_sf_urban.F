@@ -66,6 +66,12 @@ use module_wrf_error
    REAL, ALLOCATABLE, DIMENSION(:) :: Z0HB_TBL, Z0HG_TBL
    REAL, ALLOCATABLE, DIMENSION(:) :: TRLEND_TBL, TBLEND_TBL, TGLEND_TBL
    REAL, ALLOCATABLE, DIMENSION(:) :: AKANDA_URBAN_TBL
+   ! -- start -- Takane-et-al.2024_GMD
+   REAL, ALLOCATABLE, DIMENSION(:) :: AB_BUILD_RATIO_TBL
+   REAL, ALLOCATABLE, DIMENSION(:,:) :: AC_FLOOR_RATIO_TBL
+   REAL, ALLOCATABLE, DIMENSION(:) :: AC_USAGE_RATIO_CL_TBL
+   REAL, ALLOCATABLE, DIMENSION(:) :: AC_USAGE_RATIO_HT_TBL
+! -- end -- Takane-et-al.2024_GMD
 !for BEP
 
    ! MAXDIRS :: The maximum number of street directions we're allowed to define
@@ -84,6 +90,7 @@ use module_wrf_error
    INTEGER                         :: BOUNDR_DATA,BOUNDB_DATA,BOUNDG_DATA
    INTEGER                         :: CH_SCHEME_DATA, TS_SCHEME_DATA
    INTEGER                         :: ahoption        ! Miao, 2007/01/17, cal. ah
+   INTEGER                         :: copoption       ! Takane-et-al.2024_GMD
    REAL, DIMENSION(1:24)           :: ahdiuprf        ! ah diurnal profile, tloc: 1-24
    REAL, DIMENSION(1:24)           :: hsequip_tbl
 
@@ -100,6 +107,11 @@ use module_wrf_error
    REAL, DIMENSION(1:3)            :: dengimp         ! maximum water-holding depth of pavement
 
 !===end hydrological processes===
+
+   REAL, DIMENSION(1:20)           :: ROOF_WIDTH_kike   !Kikegawa20240808
+   REAL, DIMENSION(1:20)           :: ROAD_WIDTH_kike   !Kikegawa20240808
+   
+!   INTEGER                         :: LCZ_SWITCH_kike   !Kikegawa20240821
    
    INTEGER                         :: allocate_status 
 
@@ -303,7 +315,7 @@ use module_wrf_error
 !
 !===============================================================================
 
-   SUBROUTINE urban(LSOLAR,                                           & ! L
+   SUBROUTINE urban(I,J,LSOLAR,                                           & ! L
                     num_roof_layers,num_wall_layers,num_road_layers,  & ! I
                     DZR,DZB,DZG,                                      & ! I
                     UTYPE,TA,QA,UA,U1,V1,SSG,SSGD,SSGQ,LLG,RAIN,RHOO, & ! I
@@ -318,8 +330,14 @@ use module_wrf_error
                     CMR_URB,CHR_URB,CMC_URB,CHC_URB,                  & ! I/O
                     U10,V10,TH2,Q2,UST,mh_urb,stdh_urb,lf_urb,        & ! O 
                     lp_urb,hgt_urb,frc_urb,lb_urb,zo_check,           & ! O
-                    CMCR,TGR,TGRL,SMR,CMGR_URB,CHGR_URB,jmonth,       & ! H
-                    DRELR,DRELB,DRELG,FLXHUMR,FLXHUMB,FLXHUMG)
+                    CMCR,TGR,TGRL,SMR,CMGR_URB,CHGR_URB,jmonth, jday,      & ! H
+                    DRELR,DRELB,DRELG,FLXHUMR,FLXHUMB,FLXHUMG, SR, SB, SG, RR, RB, RG, HR, HB, HG, ELER, ELEB, ELEG, G0R, G0B, G0G)
+! -- start -- Takane-et-al.2024_GMD
+                  !   HEATRS_URB, QF_URB, QFB_URB,                      &
+                  !   QFB_CL_URB, QFB_HT_URB,                           &
+                  !   ECAC_URB, EC_URB, COP_URB 
+                  !  )
+! -- end -- Takane-et-al.2024_GMD
 
    IMPLICIT NONE
 
@@ -342,6 +360,7 @@ use module_wrf_error
 !-------------------------------------------------------------------------------
 
    LOGICAL, INTENT(IN) :: LSOLAR  ! logical    [true=both, false=SSG only]
+   INTEGER, INTENT(IN) :: I,J  ! logical    [true=both, false=SSG only]
 
 !  The following variables are also model configuration variables, but are 
 !  defined in the URBAN.TBL and in the contains statement in the top of 
@@ -362,7 +381,7 @@ use module_wrf_error
 
    INTEGER, INTENT(IN) :: UTYPE ! urban type [1=Commercial/Industrial, 2=High-intensity residential, 
                                 ! 3=low-intensity residential]
-   INTEGER, INTENT(IN) :: jmonth! current month 
+   INTEGER, INTENT(IN) :: jmonth, jday! current month  !cye
    REAL, INTENT(IN)    :: TA   ! potential temp at 1st atmospheric level [K]
    REAL, INTENT(IN)    :: QA   ! mixing ratio at 1st atmospheric level  [kg/kg]
    REAL, INTENT(IN)    :: UA   ! wind speed at 1st atmospheric level    [m/s]
@@ -373,13 +392,14 @@ use module_wrf_error
    REAL, INTENT(IN)    :: RAIN ! precipitation                          [mm/h]
    REAL, INTENT(IN)    :: RHOO ! air density                            [kg/m^3]
    REAL, INTENT(IN)    :: ZA   ! first atmospheric level                [m]
-   REAL, INTENT(IN)    :: DECLIN ! solar declination                    [rad]
+   REAL, INTENT(INOUT)    :: DECLIN ! solar declination                    [rad]
    REAL, INTENT(IN)    :: COSZ ! sin(fai)*sin(del)+cos(fai)*cos(del)*cos(omg)
    REAL, INTENT(IN)    :: OMG  ! solar hour angle                       [rad]
 
    REAL, INTENT(IN)    :: XLAT ! latitude                               [deg]
    REAL, INTENT(IN)    :: DELT ! time step                              [s]
-   REAL, INTENT(IN)    :: CHS,CHS2 ! CH*U at za and 2 m             [m/s]
+   REAL, INTENT(IN)    :: CHS,CHS2 ! CH*U at za and 2 m             [m/s] !cye
+   REAL    :: CHS_urban,CHS2_urban ! CH*U at za and 2 m             [m/s] !cye
 
    REAL, INTENT(INOUT) :: SSGD ! downward direct short wave radiation   [W/m/m]
    REAL, INTENT(INOUT) :: SSGQ ! downward diffuse short wave radiation  [W/m/m]
@@ -387,7 +407,8 @@ use module_wrf_error
    REAL, INTENT(INOUT) :: CHR_URB
    REAL, INTENT(INOUT) :: CMC_URB
    REAL, INTENT(INOUT) :: CHC_URB
-   REAL, INTENT(INOUT) :: ZNT  ! roughness length                       [m]    ! modified by danli
+   REAL :: CHC2_URB, CMC2_URB, CDC2
+   REAL, INTENT(IN) :: ZNT  ! roughness length                       [m]    ! modified by danli
 !-------------------------------------------------------------------------------
 ! I: NUDAPT Input Parameters
 !-------------------------------------------------------------------------------
@@ -481,6 +502,15 @@ use module_wrf_error
    REAL :: T1VR, T1VC,TH2V
    REAL :: RLMO_URB
    REAL :: AKANDA_URBAN
+   ! -- start -- Takane-et-al.2024_GMD
+   REAL :: HSEQUIP_SCALE_FACTOR, COP, PERFLO, TARGTEMP
+   REAL,    DIMENSION (1:24) :: HSEQUIP
+   REAL :: ROOF_WIDTH2, ROAD_WIDTH2
+   REAL :: AB_BUILD_RATIO  ! the ratio of abandoned houses/buildings to all the houses/buildings in a city block
+   REAL,    DIMENSION (1:24) :: AC_FLOOR_RATIO  ! the ratio of air-conditioned floor area to total floor area
+   REAL :: AC_USAGE_RATIO_CL  ! the ratio of AC usage for cooling or heating to all the cooling and heating equipment
+   REAL :: AC_USAGE_RATIO_HT  ! the ratio of AC usage for cooling or heating to all the cooling and heating equipment
+! -- end -- Takane-et-al.2024_GMD
    
    REAL :: TH2X                                                !m
    
@@ -505,18 +535,19 @@ use module_wrf_error
    REAL :: BETR, BETB, BETG
    REAL :: SX, SD, SQ, RX
    REAL :: UR, ZC, XLB, BB
-   REAL :: Z, RIBB, RIBG, RIBC, BHR, BHB, BHG, BHC
+   REAL :: Z,RIBR, RIBB, RIBG, RIBC, BHR, BHB, BHG, BHC
    REAL :: TSC, LNET, SNET, FLXUV, THG, FLXTH, FLXHUM, FLXG
    REAL :: W, VFGS, VFGW, VFWG, VFWS, VFWW
    REAL :: HOUI1, HOUI2, HOUI3, HOUI4, HOUI5, HOUI6, HOUI7, HOUI8
    REAL :: SLX, SLX1, SLX2, SLX3, SLX4, SLX5, SLX6, SLX7, SLX8
    REAL :: FLXTHR, FLXTHB, FLXTHG
-   REAL :: SR, SB, SG, RR, RB, RG
+   REAL, INTENT(INOUT) :: SR, SB, SG, RR, RB, RG
    REAL :: SR1, SR2, SB1, SB2, SG1, SG2, RR1, RR2, RB1, RB2, RG1, RG2
-   REAL :: HR, HB, HG, ELER, ELEB, ELEG, G0R, G0B, G0G
-   REAL :: ALPHAC, ALPHAR, ALPHAB, ALPHAG
+   REAL, INTENT(INOUT) :: HR, HB, HG, ELER, ELEB, ELEG, G0R, G0B, G0G
+   REAL :: ALPHAC, ALPHAR, ALPHAB, ALPHAG, ALPHAC2
    REAL :: CHC, CHR, CHB, CHG, CDC, CDR, CDB, CDG, CDGR
    REAL :: C1R, C1B, C1G, TE, TC1, TC2, QC1, QC2, QS0R, QS0B, QS0G,RHO,ES
+
 
    REAL :: DESDT
    REAL :: F
@@ -545,6 +576,25 @@ use module_wrf_error
    REAL :: XXX, X, Z0, Z0H, CD, CH
    REAL :: XXX2, PSIM2, PSIH2, XXX10, PSIM10, PSIH10
    REAL :: PSIX, PSIT, PSIX2, PSIT2, PSIX10, PSIT10
+
+   ! -- start -- Takane-et-al.2024_GMD
+   REAL :: HEATRS_URB          ! Heat transferred into buildings through wall and roof in [W/m/m]
+   REAL :: QF_URB              ! Total anthropogenic heat (from buildings + traffic) [W/m/m]
+   REAL :: QFB_URB             ! Anthropogenic heat from buildings [W/m/m]
+   REAL :: QFB_CL_URB          ! QFB for cooling [W/m/m]
+   REAL :: QFB_HT_URB          ! QFB for heating [W/m/m]
+   REAL :: ECAC_URB            ! Electricity consumption by AC use [W/m/m]
+   REAL :: EC_URB              ! ECAC + BASELOAD
+   REAL :: AP_BASELOAD         ! BASELOAD by appliance [W/floor-m2]
+   REAL :: OC_BASELOAD         ! BASELOAD by occupant [W/floor-m2]
+   REAL :: BASELOAD            ! total baseload (AP_BASELOAD + OC_BASELOAD) [W/floor-m2]
+   REAL :: BASELOAD_LAND       ! total baseload (AP_BASELOAD + OC_BASELOAD) [W/m2]
+   real,parameter  :: HEAT_PERSON  = 43.7  ! heat generation by a person [W/person]
+   real,parameter  :: FLOOR_HEIGHT =  3.0  ! floor height [m]
+   REAL :: COP_URB             ! simulated COP [-]
+   REAL :: Hin                 ! indoor sensible heat load [W]  ! 2024.08.08
+   REAL :: Hout                ! indoor sensible heat load processed by HAC systems [W]  ! 2024.08.08
+! -- end -- Takane-et-al.2024_GMD
 
    REAL :: TRP, TBP, TGP, TCP, QCP, TST, QST
 
@@ -597,14 +647,38 @@ use module_wrf_error
    integer,parameter ::  IMPR  = 1     
    integer,parameter ::  IMPB  = 2      
    integer,parameter ::  IMPG  = 3    
-
+   LOGICAL                         :: distributed_aerodynamics_option = .false.
+   REAL :: TSP
 !-------------------------------------------------------------------------------
 ! Set parameters
 !-------------------------------------------------------------------------------
+!------------------------------------------cye-add-RSL----------------------------------- 2025-12-05
+REAL :: zeta_prime_M, zeta_prime_H
+REAL :: termM1, termM2, termM3, PSIM_hat
+REAL :: termH1, termH2, termH3, PSIH_hat
+REAL :: lamda_hat, mu_hat_M, mu_hat_H, nu_hat, z_hat, chi
+REAL :: chi10, zeta10, zeta10_prime
+REAL :: termM1_10, termM2_10, termM3_10, PSIM10_hat
+REAL :: chi2, zeta2, zeta2_prime
+REAL :: termH1_2, termH2_2, termH3_2, PSIH2_hat
+REAL :: Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2
+!------------------------------------------cye-add-RSL-----------------------------------
+REAL :: U2,V2,CH2,Z0HR !cye
+
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output1.csv',position="append" )!cye-write
+!          write(30,* ) 'TA = ', TA,   ' TR = ', TR,  ' TB = ', TB , ' TC = ', TC,' TG = ', TG, ' TH2 = ',TH2 , ' TS = ', TS
+!          ! write(30,* ) 'TS + (TA-TS) *(CHS/CHS2) = ', TS + (TA-TS) *(CHS/CHS2), ' TS - SH/ (RHOO*CPP*CHS2) = ', TS  - SH/ (RHOO*CPP*CHS2)
+!           write(30,*) ' '
+!           close(30) 
+! endif
 
 ! Miao, 2007/01/17, cal. ah
-   if(ahoption==1) then
-     tloc=mod(int(OMG/PI*180./15.+12.+0.5 ),24)
+! -- start -- Takane-et-al.2024_GMD
+!   if(ahoption==1) then
+   if(ahoption==1 .or. ahoption==2) then
+! -- end -- Takane-et-al.2024_GMD     
+   tloc=mod(int(OMG/PI*180./15.+12.+0.5 ),24)
      if(tloc.lt.0) tloc=tloc+24
      if(tloc==0) tloc=24
    endif
@@ -615,7 +689,7 @@ use module_wrf_error
      if(tloc2==0) tloc2=48
    endif
 
-   CALL read_param(UTYPE,ZR,SIGMA_ZED,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,  &
+   CALL read_param(I,UTYPE,ZR,SIGMA_ZED,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,  &
                    AH,CAPR,CAPB,CAPG,AKSR,AKSB,AKSG,ALBR,ALBB,    &
                    ALBG,EPSR,EPSB,EPSG,Z0R,Z0B,Z0G,Z0HB,Z0HG,     &
                    BETR,BETB,BETG,TRLEND,TBLEND,TGLEND,           &
@@ -625,11 +699,27 @@ use module_wrf_error
                    HPERCENT_BIN,                                  & 
 !end BEP
                    BOUNDR,BOUNDB,BOUNDG,CH_SCHEME,TS_SCHEME,      &
-                   AKANDA_URBAN,ALH)
+! -- start -- Takane-et-al.2024_GMD
+                   AKANDA_URBAN,ALH,                              &
+                   HSEQUIP, HSEQUIP_SCALE_FACTOR, COP, PERFLO,    &
+                   TARGTEMP,                                      &
+                   AB_BUILD_RATIO, AC_FLOOR_RATIO,                &
+                   AC_USAGE_RATIO_CL, AC_USAGE_RATIO_HT )
+! -- end -- Takane-et-al.2024_GMD
 
 ! Glotfelty, 2012/07/05, NUDAPT Modification
 
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output.csv',position="append" )!cye-write
+!          !  write(30,* )'UTYPE = ', UTYPE, 'ZR = ', ZR, 'SIGMA_ZED = ', SIGMA_ZED, 'Z0C = ', Z0C, 'Z0HC = ', Z0HC, 'ZDC = ', ZDC, 'SVF = ', SVF, 'R = ', R, 'RW = ', RW, 'HGT = ', HGT, 'AH = ', AH
+!          ! write(30,*) 'mh_urb = ', mh_urb, 'ZR = ', ZR, 'Z0C = ', Z0C, 'Z0R = ', Z0R, 'SVF = ', SVF, 'HGT = ', HGT, 'lp_urb = ', lp_urb, 'R = ', R, &
+!          ! 'hgt_urb = ', hgt_urb,'stdh_urb = ', stdh_urb, 'lf_urb = ', lf_urb, 'frc_urb = ', frc_urb,'lb_urb = ', lb_urb
+!          write(30,* ) BUILDING_WIDTH,STREET_WIDTH
+!           close(30) 
+! endif
+
  if(mh_urb.gt.0.0)THEN 
+!  if(mh_urb.ge.0.0)THEN 
   !write(mesg,*) 'Mean Height NUDAPT',mh_urb
   !WRITE_MESSAGE(mesg)
   !write(mesg,*) 'Mean Height Table',ZR
@@ -682,11 +772,21 @@ use module_wrf_error
  end if
  
  !Assign NUDAPT Parameters
-   ZR = mh_urb
+ lp_urb = BW / (BW + SW) ! Plan area fraction [-]
+ mh_urb  = ZR
+ hgt_urb = ZR
+ lf_urb = 2*mh_urb/(BW+ SW) ! Frontal area index [-]
+ lb_urb = lp_urb + lf_urb(1)! Building surface to plan area ratio [-]
+
+   ! ZR = mh_urb
     R = lp_urb
     RW = 1.0-R
    HGT = mh_urb/(BW+SW)
-   SIGMA_ZED = stdh_urb
+   ! SIGMA_ZED = stdh_urb
+   stdh_urb = SIGMA_ZED
+
+
+
 
  !Calculate Wind Direction and Assign Appropriae lf_urb
    WDR = (180.0/PI)*ATAN2(U10,V10)
@@ -714,6 +814,16 @@ use module_wrf_error
    ELSE
      lambda_f = lf_urb(1)
    ENDIF
+
+
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output.csv',position="append" )!cye-write
+!          !  write(30,* )'UTYPE = ', UTYPE, 'ZR = ', ZR, 'SIGMA_ZED = ', SIGMA_ZED, 'Z0C = ', Z0C, 'Z0HC = ', Z0HC, 'ZDC = ', ZDC, 'SVF = ', SVF, 'R = ', R, 'RW = ', RW, 'HGT = ', HGT, 'AH = ', AH
+!          write(30,*) 'mh_urb = ', mh_urb, 'ZR = ', ZR, 'Z0C = ', Z0C, 'Z0R = ', Z0R, 'SVF = ', SVF, 'HGT = ', HGT, 'lp_urb = ', lp_urb, 'R = ', R, &
+!          'hgt_urb = ', hgt_urb,'stdh_urb = ', stdh_urb, 'lf_urb = ', lf_urb, 'frc_urb = ', frc_urb,'lb_urb = ', lb_urb
+!          write(30,* ) ' '
+!           close(30) 
+! endif
 
   !Calculate the following urban canyon geometry parameters following Macdonald's (1998) formulations
       Cd         = 1.2
@@ -774,7 +884,14 @@ use module_wrf_error
 
 
 ! Miao, 2007/01/17, cal. ah
-   if(ahoption==1) AH=AH*ahdiuprf(tloc)
+! -- start -- Takane-et-al.2024_GMD
+!   if(ahoption==1) AH=AH*ahdiuprf(tloc)
+   if(ahoption==1 .or. ahoption==2) AH=AH*ahdiuprf(tloc)
+! -- end -- Takane-et-al.2024_GMD
+
+! -- start -- Takane-et-al.2024_GMD
+   AP_BASELOAD = HSEQUIP_SCALE_FACTOR * HSEQUIP(tloc)
+! -- start -- Takane-et-al.2024_GMD
 
 ! Yang, 2014/10/08, cal. alh
    Kalh=0
@@ -787,6 +904,11 @@ use module_wrf_error
    if(alhoption==1) ALH = ALH*alhdiuprf(tloc2)*alhseason(Kalh)
 
    IF( ZDC+Z0C+2. >= ZA) THEN
+   
+          open( 30, file= 'output.csv',position="append" )!cye-write
+          write(30,*) 'ZDC,Z0C,ZA',ZDC,Z0C,ZA
+          close(30) 
+
     FATAL_ERROR("ZDC + Z0C + 2m is larger than the 1st WRF level - Stop in subroutine urban - change ZDC and Z0C" ) 
    END IF
 
@@ -803,6 +925,13 @@ use module_wrf_error
    VFWG=(1.-SVF)*(1.-R)/W
    VFWS=VFWG
    VFWW=1.-2.*VFWG
+
+!  if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output.csv',position="append" )!cye-write
+!           write(30,* )'W = ', W, 'VFGS = ', VFGS, 'VFWG = ', VFWG, 'VFWS = ', VFWS, 'VFWW = ', VFWW
+!           write(30,* ) ' '
+!           close(30) 
+! endif
 
 !-------------------------------------------------------------------------------
 ! Convert unit from MKS to cgs
@@ -821,6 +950,7 @@ use module_wrf_error
    TCP=TC
    QCP=QC
 
+   TSP = (TR * R + TB * W + TG * RW) / (R + RW + W)
 !===Yang,2014/10/08, urban hydrological variables for single layer UCM===
    FLXHUMRP = FLXHUMR
    FLXHUMBP = FLXHUMB
@@ -852,12 +982,84 @@ use module_wrf_error
 !-------------------------------------------------------------------------------
 
    IF ( ZR + 2. < ZA ) THEN
+
      UR=UA*LOG((ZR-ZDC)/Z0C)/LOG((ZA-ZDC)/Z0C)
      ZC=0.7*ZR
      XLB=0.4*(ZR-ZDC)
      ! BB formulation from Inoue (1963)
      BB = 0.4 * ZR / ( XLB * alog( ( ZR - ZDC ) / Z0C ) )
      UC=UR*EXP(-BB*(1.-ZC/ZR))
+
+
+! if (UTYPE == 1) then
+!           open( 30, file= 'output51.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 2) then
+!           open( 30, file= 'output52.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!          write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 3) then
+!           open( 30, file= 'output53.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 4) then
+!           open( 30, file= 'output54.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 5) then
+!           open( 30, file= 'output55.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 6) then
+!           open( 30, file= 'output56.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 7) then
+!           open( 30, file= 'output57.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 8) then
+!           open( 30, file= 'output58.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 9) then
+!           open( 30, file= 'output59.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 10) then
+!           open( 30, file= 'output60.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! elseif (UTYPE == 11) then
+!           open( 30, file= 'output61.csv',position="append" )!cye-write
+!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
+!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
+!           write(30,*) ' '
+!           close(30) 
+! endif
+
+
    ELSE
      ! PRINT *, 'Warning ZR + 2m  is larger than the 1st WRF level' 
      ZC=ZA/2.
@@ -868,8 +1070,8 @@ use module_wrf_error
 ! Net Short Wave Radiation at roof, wall, and road
 !-------------------------------------------------------------------------------
 
-   SHADOW = .false.
-!   SHADOW = .true.
+   ! SHADOW = .false.
+  SHADOW = .true.
 
    IF (SSG > 0.0) THEN
 
@@ -880,14 +1082,19 @@ use module_wrf_error
        SG1=SX*VFGS*(1.-ALBG)
        SB1=SX*VFWS*(1.-ALBB)
        SG2=SB1*ALBB/(1.-ALBB)*VFGW*(1.-ALBG)
-       SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB)
+      !  SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB)
+      SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB) + SB1*ALBB*VFWW !cye 
 
      ELSE                              ! shadow effects model
 
-       FAI=XLAT*PI/180.
+      !  FAI=XLAT*PI/180.!cye add, the xlat in MPAS is different fron WRF 
+         FAI=XLAT
 
        THEATAS=ABS(ASIN(COSZ))
        THEATAZ=ABS(ACOS(COSZ))
+
+      ! DECLIN = -23.44*COS((360/365)*(jday+10))*(3.1415926/180.0)  ! declination in radians cye
+      ! DECLIN = -23.44*COS((360./365.)*(jday+10.))*(PI/180.0)  ! declination in radians cye
 
        SNT=COS(DECLIN)*SIN(OMG)/COS(THEATAS)
        CNT=(COSZ*SIN(FAI)-SIN(DECLIN))/COS(THEATAS)/COS(FAI)
@@ -926,7 +1133,21 @@ use module_wrf_error
        SG1=SD*(RW-SLX)/RW*(1.-ALBG)+SQ*VFGS*(1.-ALBG)
        SB1=SD*SLX/W*(1.-ALBB)+SQ*VFWS*(1.-ALBB)
        SG2=SB1*ALBB/(1.-ALBB)*VFGW*(1.-ALBG)
-       SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB)
+      !  SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB) ！cye add 2026-06-12
+       SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB) + SB1*ALBB*VFWW
+
+! if (I==78 .and. UTYPE == 8) then
+!           open( 30, file= 'output1.csv',position="append" )!cye-write
+!          ! write(30,* ) 'TR = ', TR,'SR = ', SR/RHO/CP/100. , ' RR = ', RR/RHO/CP/100. , ' HR = ', HR/RHO/CP/100. , ' ELER = ', ELER/RHO/CP/100. , ' G0R = ', G0R/RHO/CP/100.
+!          write(30,* ) 'FAI = ', FAI, ' THEATAS= ', THEATAS, ' THEATAZ= ', THEATAZ
+!          write(30,* ) ' SNT= ', SNT, ' CNT= ', CNT
+!          write(30,* ) ' HOUI1= ', HOUI1, ' HOUI2= ', HOUI2, ' HOUI3= ', HOUI3, ' HOUI4= ', HOUI4, ' HOUI5= ', HOUI5, ' HOUI6= ', HOUI6, ' HOUI7= ', HOUI7, ' HOUI8= ', HOUI8
+!          write(30,*) 'SD= ', SD, ' SQ= ', SQ
+!             write(30,* ) ' SLX1= ', SLX1, ' SLX2= ', SLX2, ' SLX3= ', SLX3, ' SLX4= ', SLX4, ' SLX5= ', SLX5, ' SLX6= ', SLX6, ' SLX7= ', SLX7, ' SLX8= ', SLX8, ' SLX= ', SLX
+!             write(30,* ) 'SR1= ', SR1, 'SGR1= ', SGR1, 'SG1= ', SG1, 'SB1= ', SB1, 'SG2= ', SG2, 'SB2= ', SB2
+!           write(30,*) ' '
+!           close(30) 
+! endif
 
      END IF
 
@@ -960,7 +1181,9 @@ use module_wrf_error
 !-------------------------------------------------------------------------------
 
    ! Z=ZA-ZDC
+   ! Z0HR = 0.1*Z0R
    ! BHR=LOG(Z0R/Z0HR)/0.4
+   ! ! BHR=LOG(10)/0.4
    ! RIBR=(9.8*2./(TA+TRP))*(TA-TRP)*(Z+Z0R)/(UA*UA)
    ! CALL mos(XXXR,ALPHAR,CDR,BHR,RIBR,Z,Z0R,UA,TA,TRP,RHO)
 
@@ -971,9 +1194,27 @@ use module_wrf_error
   
    ! note that CHR_URB contains UA (=CHR_MOS*UA)
    RLMO_URB=0.0
+
+
+   IF (distributed_aerodynamics_option) THEN
+     T1VC = TSP* (1.0+ 0.61 * QA)
+     CALL SFCDIF_URB (ZA,Z0C,T1VC,TH2V,UA,AKANDA_URBAN,CMC_URB,CHC_URB,RLMO_URB,CDC,Z0HC)
+     CHC = CHC_URB / UA ! canopy bulk transfer coef.
+     ALPHAC = RHO * CP * CHC_URB
+     CHR = CHC * R / (R + W + RW) ! local bulk transfer coef for roof
+     CHB = CHC * W / (R + W + RW) ! local bulk transfer coef for building wall
+     CHG = CHC * RW / (R + W + RW) ! local bulk transfer coef for floor
+     ALPHAR = RHO * CP * CHR * UA
+     ALPHAB = RHO * CP * CHB * UA
+     ALPHAG = RHO * CP * CHG * UA
+   ELSE
+
    CALL SFCDIF_URB (ZA,Z0R,T1VR,TH2V,UA,AKANDA_URBAN,CMR_URB,CHR_URB,RLMO_URB,CDR)
    ALPHAR =  RHO*CP*CHR_URB
    CHR=ALPHAR/RHO/CP/UA
+
+   END IF
+
 
 ! Yang, 03/12/2014 -- LH for impervious roof surface  
    RAIN1 = RAIN * 0.001 /3600          ! CONVERT FROM mm/hr to m/s
@@ -984,7 +1225,9 @@ use module_wrf_error
    IF (IMP_SCHEME==2) then
    IF (FLXHUMRP <= 0.) FLXHUMRP = 0. 
 !  Compute water retention depth from previous time step 
-   DrelR = DrelRP+(RAIN1-FLXHUMRP)*DELT/porimp(IMPR)
+   ! DrelR = DrelRP+(RAIN1-FLXHUMRP)*DELT/porimp(IMPR)
+      ! Convert kinematic water flux to evaporation in m/s: multiply flux by rho_air/who_water in SI units
+   DrelR = DrelRP+(RAIN1-FLXHUMRP*RHOO/1000.)*DELT/porimp(IMPR)
    IF (RAIN > 0. .AND. DrelR < DrelRP) DrelR = DrelRP 
   
    IF (DrelR <= 0.) then
@@ -1023,6 +1266,7 @@ use module_wrf_error
 
        ES=6.11*EXP( (2.5*10.**6./461.51)*(TRP-273.15)/(273.15*TRP) )
        DESDT=(2.5*10.**6./461.51)*ES/(TRP**2.)
+
        QS0R=0.622*ES/(PS-0.378*ES) 
        DQS0RDTR = DESDT*0.622*PS/((PS-0.378*ES)**2.) 
 
@@ -1052,6 +1296,10 @@ use module_wrf_error
 
      CALL multi_layer(num_roof_layers,BOUNDR,G0R,CAPR,AKSR,TRL,DZR,DELT,TRLEND)
 
+
+
+
+
    ELSE
 
      ES=6.11*EXP( (2.5*10.**6./461.51)*(TRP-273.15)/(273.15*TRP) )
@@ -1070,6 +1318,7 @@ use module_wrf_error
 
    FLXTHR=HR/RHO/CP/100.
    FLXHUMR=ELER/RHO/EL/100.
+
 
 !-------------------------------------------------------------------------------
 ! Green Roof
@@ -1136,7 +1385,8 @@ use module_wrf_error
           
        CALL TDFCND (DF1,SMR(KZ), QUARTZ, SMCMAX )
        DF1 = DF1 * EXP(-2.0 * SHDFAC)  
-       RGR = EPSV*(RX-SIG*(TGRP**4.)/60.)
+      !  RGR = EPSV*(RX-SIG*(TGRP**4.)/60.)
+      RGR = EPSV*(RX-SIG*(TA**4.)/60.) !cye https://github.com/wrf-model/WRF/commit/6198090842e05f4c3884fd7f1162bb6ebe97175a
        RGRR= (SGR+RGR) * 697.7 * 60.
        RCH = RHOO*CPP*CHGR
        RR1 = EPSV*(TA**4) * 6.48E-8 / (PS* CHGR) + 1.0
@@ -1189,14 +1439,25 @@ ENDIF
    ! Z=ZA-ZDC
    ! BHC=LOG(Z0C/Z0HC)/0.4
    ! RIBC=(9.8*2./(TA+TCP))*(TA-TCP)*(Z+Z0C)/(UA*UA)
-   !
+   
    ! CALL mos(XXXC,ALPHAC,CDC,BHC,RIBC,Z,Z0C,UA,TA,TCP,RHO)
    ! Virtual temperatures needed by SFCDIF routine from Noah
+
+IF (.not. distributed_aerodynamics_option) THEN
 
    T1VC = TCP* (1.0+ 0.61 * QA) 
    RLMO_URB=0.0
    CALL SFCDIF_URB(ZA,Z0C,T1VC,TH2V,UA,AKANDA_URBAN,CMC_URB,CHC_URB,RLMO_URB,CDC)
    ALPHAC =  RHO*CP*CHC_URB
+
+   ! CALL SFCDIF_URB(2.,Z0C,T1VC,TH2V,UA,AKANDA_URBAN,CMC2_URB,CHC2_URB,RLMO_URB,CDC2)
+   ! ALPHAC2 =  RHO*CP*CHC2_URB
+
+   ! if (I==1500 .and. UTYPE == 8) then
+   !        open( 30, file= 'output3.csv',position="append" )!cye-write
+   !        write(30,*) 'CHC_URB = ', CHC_URB,'CHC2_URB = ', CHC2_URB, 'CHC_URB/CHC2_URB = ', CHC_URB/CHC2_URB
+   !        close(30) 
+   !    endif
 
    IF (CH_SCHEME == 1) THEN 
 
@@ -1222,6 +1483,8 @@ ENDIF
    CHB=ALPHAB/RHO/CP/UC
    CHG=ALPHAG/RHO/CP/UC
 
+END IF
+
 !Yang 10/10/2013 -- LH from impervious wall and ground
  IF (IMP_SCHEME==1) then
    BETB=0.0
@@ -1232,9 +1495,13 @@ ENDIF
    IF (FLXHUMBP <= 0.) FLXHUMBP = 0. 
    IF (FLXHUMGP <= 0.) FLXHUMGP = 0. 
 ! Compute water retention from previous time step for wall and ground
-  DrelB = DrelBP+(RAIN1-FLXHUMBP)*DELT/porimp(IMPB) 
+!   DrelB = DrelBP+(RAIN1-FLXHUMBP)*DELT/porimp(IMPB) 
+   ! Convert kinematic water flux to evaporation in m/s: multiply flux by rho_air/who_water in SI unitsMore actions
+  DrelB = DrelBP+(RAIN1-FLXHUMBP*RHOO/1000.)*DELT/porimp(IMPB) !cye
+
     IF (RAIN > 0. .AND. DrelB < DrelBP) DrelB = DrelBP 
-  DrelG = DrelGP+(RAIN1-FLXHUMGP)*DELT/porimp(IMPG)  
+!   DrelG = DrelGP+(RAIN1-FLXHUMGP)*DELT/porimp(IMPG)  
+DrelG = DrelGP+(RAIN1-FLXHUMGP*RHOO/1000.)*DELT/porimp(IMPG)   !cye
     IF (RAIN > 0. .AND. DrelG < DrelGP) DrelG = DrelGP 
   
   IF (DrelB <= 0.) then
@@ -1281,8 +1548,15 @@ ENDIF
 
        ES=6.11*EXP( (2.5*10.**6./461.51)*(TGP-273.15)/(273.15*TGP) ) 
        DESDT=(2.5*10.**6./461.51)*ES/(TGP**2.)
+
+         ! open( 30, file= 'output.csv',position="append" )!cye-write
+         ! write(30,*) PS,ES,0.378*ES
+         ! close(30) 
+
+          
        QS0G=0.622*ES/(PS-0.378*ES)        
-       DQS0GDTG=DESDT*0.22*PS/((PS-0.378*ES)**2.) 
+      !  DQS0GDTG=DESDT*0.22*PS/((PS-0.378*ES)**2.)  !cye chhannge 0.22 to 0.622 2025-05-29
+       DQS0GDTG=DESDT*0.622*PS/((PS-0.378*ES)**2.) 
 
        RG1=EPSG*( RX*VFGS          &
        +EPSB*VFGW*SIG*TBP**4./60.  &
@@ -1300,7 +1574,8 @@ ENDIF
        RB2=EPSB*( (1.-EPSG)*VFWG*VFGS*RX                          &
        +(1.-EPSG)*EPSB*VFGW*VFWG*SIG*(TBP**4.)/60.                &
        +(1.-EPSB)*VFWS*(1.-2.*VFWS)*RX                            &
-       +(1.-EPSB)*VFWG*(1.-2.*VFWS)*EPSG*SIG*EPSG*TGP**4./60.     &
+      !  +(1.-EPSB)*VFWG*(1.-2.*VFWS)*EPSG*SIG*EPSG*TGP**4./60.     & ! thete are two EPSG and is different from the one in WRF
+       +(1.-EPSB)*VFWG*(1.-2.*VFWS)*SIG*EPSG*TGP**4./60.     & ! comsistant with WRF
        +EPSB*(1.-EPSB)*(1.-2.*VFWS)*(1.-2.*VFWS)*SIG*TBP**4./60. )
 
        RG=RG1+RG2
@@ -1321,6 +1596,24 @@ ENDIF
        DRBDTG=DRBDTG1+DRBDTG2
        DRGDTB=DRGDTB1+DRGDTB2
        DRGDTG=DRGDTG1+DRGDTG2
+
+       IF (distributed_aerodynamics_option) THEN
+         HB=RHO*CP*CHB*UA*(TBP-TA)*100.
+         HG=RHO*CP*CHG*UA*(TGP-TA)*100.
+
+         DHBDTB=RHO*CP*CHB*UA*100.
+         DHBDTG=0.
+         DHGDTG=RHO*CP*CHG*UA*100.
+         DHGDTB=0.
+
+         ELEB=RHO*EL*CHB*UA*BETB*(QS0B-QA)*100.
+         ELEG=RHO*EL*CHG*UA*BETG*(QS0G-QA)*100.
+
+         DELEBDTB=RHO*EL*CHB*UA*BETB*DQS0BDTB*100.
+         DELEBDTG=0.
+         DELEGDTG=RHO*EL*CHG*UA*BETG*DQS0GDTG*100.
+         DELEGDTB=0.
+       ELSE
 
        HB=RHO*CP*CHB*UC*(TBP-TCP)*100.
        HG=RHO*CP*CHG*UC*(TGP-TCP)*100.
@@ -1344,6 +1637,7 @@ ENDIF
        DELEGDTG=RHO*EL*CHG*UC*BETG*(DQS0GDTG-DQCDTG)*100.
        DELEGDTB=RHO*EL*CHG*UC*BETG*(0.-DQCDTB)*100.
 
+   ENDIF
        G0B=AKSB*(TBP-TBL(1))/(DZB(1)/2.)
        G0G=AKSG*(TGP-TGL(1))/(DZG(1)/2.)
 
@@ -1369,6 +1663,10 @@ ENDIF
        TBP = TB
        TGP = TG
 
+       IF (distributed_aerodynamics_option) THEN
+         DTC = 0.0
+       ELSE
+
        TC1=RW*ALPHAC+RW*ALPHAG+W*ALPHAB
        TC2=RW*ALPHAC*TA+RW*ALPHAG*TGP+W*ALPHAB*TBP
        TC=TC2/TC1
@@ -1381,6 +1679,8 @@ ENDIF
        TCP=TC
        QCP=QC
 
+      ENDIF
+
        IF( ABS(F) < 0.000001 .AND. ABS(DTB) < 0.000001 &
         .AND. ABS(GF) < 0.000001 .AND. ABS(DTG) < 0.000001 &
         .AND. ABS(DTC) < 0.000001) EXIT
@@ -1390,6 +1690,15 @@ ENDIF
      CALL multi_layer(num_wall_layers,BOUNDB,G0B,CAPB,AKSB,TBL,DZB,DELT,TBLEND)
 
      CALL multi_layer(num_road_layers,BOUNDG,G0G,CAPG,AKSG,TGL,DZG,DELT,TGLEND)
+
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output3.csv',position="append" )!cye-write
+!           write(30,* ) 'SG = ',SG , 'RG = ',RG , 'HG = ' , HG , 'ELEG = ' , ELEG , 'G0G = ', G0G, 'GF = ', GF, 'TG = ', TG,'TC = ',TC, 'TG - TC = ', TG - TC, 'CHG = ', CHG, 'UC = ', UC
+!           write(30,* ) 'SB = ',SB , 'RB = ',RB , 'HB = ' , HB , 'ELEB = ' , ELEB , 'G0B = ', G0B, 'BF = ', F, 'TB = ', TB,'TC = ',TC, 'TB - TC = ', TB - TC, 'CHB = ', CHB, 'UC = ', UC
+!           write(30,* ) 'SR = ',SR , 'RR = ',RR , 'HR = ' , HR , 'ELER = ' , ELER , 'G0R = ', G0R, 'RF = ', SR + RR - HR - ELER - G0R, 'TR = ', TR,'TA = ',TA, 'TR - TA = ', TR - TA, 'CHR = ', CHR, 'UA = ', UA
+!           write(30, *) ' '
+!           close(30) 
+! endif
 
    ELSE
 
@@ -1419,7 +1728,8 @@ ENDIF
        RB2=EPSB*( (1.-EPSG)*VFWG*VFGS*RX                          &
        +(1.-EPSG)*EPSB*VFGW*VFWG*SIG*(TBP**4.)/60.                &
        +(1.-EPSB)*VFWS*(1.-2.*VFWS)*RX                            &
-       +(1.-EPSB)*VFWG*(1.-2.*VFWS)*EPSG*SIG*EPSG*TGP**4./60.     &
+      !  +(1.-EPSB)*VFWG*(1.-2.*VFWS)*EPSG*SIG*EPSG*TGP**4./60.     &
+       +(1.-EPSB)*VFWG*(1.-2.*VFWS)*SIG*EPSG*TGP**4./60.     & ! thete are two EPSG and is different from the one in WRF cye
        +EPSB*(1.-EPSB)*(1.-2.*VFWS)*(1.-2.*VFWS)*SIG*TBP**4./60. )
 
        RG=RG1+RG2
@@ -1465,8 +1775,104 @@ ENDIF
  if(groption==1) then
    if(ahoption==1) then
      FLXTH  = ((1.-FGR)*R*FLXTHR + FGR*R*FLXTHGR + W*FLXTHB + RW*FLXTHG)+ AH/RHOO/CPP
+     ! -- start -- Takane-et-al.2024_GMD
+       QF_URB     = AH
+       HEATRS_URB = 0.
+       QFB_URB    = 0.
+       QFB_CL_URB = 0.
+       QFB_HT_URB = 0.
+       ECAC_URB   = 0.
+       EC_URB     = 0.
+       COP_URB    = 0.       
+       Hin        = 0.
+       Hout       = 0.
+   else if(ahoption==2) then
+     HEATRS_URB        = ( 2.0*HGT*697.7*60.*AKSB*(TBL(4)-TBLEND)/(DZB(4)/2.) ) &
+                       + (       R*697.7*60.*AKSR*(TRL(4)-TRLEND)/(DZR(4)/2.) ) ! [W/m2]
+     OC_BASELOAD       = PERFLO * HEAT_PERSON                              ! [W/floor-m2]
+     BASELOAD          = AP_BASELOAD + OC_BASELOAD                         ! [W/floor-m2]
+     BASELOAD_LAND     = BASELOAD &
+                       * (((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE))/(ROOF_WIDTH_kike(UTYPE)+ROAD_WIDTH_kike(UTYPE))) ! conver from [W/floor-m2] to [W/m2]
+     Hin  = BASELOAD*((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE) &
+          + HEATRS_URB*(ROOF_WIDTH_kike(UTYPE)+ROAD_WIDTH_kike(UTYPE))) ! [W]
+     if(copoption==0) then
+       COP_URB = COP
+     else if(copoption==1) then
+       CALL VAR_COP (COP, TC, TBLEND, ZR, FLOOR_HEIGHT,   & ! in
+                     HEATRS_URB, BASELOAD_LAND,           & ! out
+                     UTYPE,                               & ! out
+                     COP_URB)
+     endif
+     if (XLAT >= 0.) then
+       if (jmonth <= 3 .or. jmonth >= 10) then
+         if ( abs(HEATRS_URB) > BASELOAD_LAND ) then
+           QFB_HT_URB = ((COP_URB-1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         else
+           QFB_HT_URB = ((COP_URB+1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         endif
+         QFB_URB    = QFB_HT_URB                                                ! [W/m2]
+         QFB_CL_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT ! [W]
+       else
+         QFB_CL_URB = ((COP_URB+1)/COP_URB) &
+                    * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL) ! [W/m2]
+
+                  !   3 2 2 2 2 1 2 3 1  3  3 cye
+                  !   1 2 3 4 5 6 7 8 9 10 11
+
+         if ( UTYPE == 2 .or. UTYPE == 3  .or. UTYPE == 4 .or. UTYPE == 5 .or. UTYPE == 6 .or. UTYPE == 7 .or. UTYPE == 9 ) then
+           QFB_URB    = QFB_CL_URB ! [W/m2]
+         else if ( UTYPE == 1  .or. UTYPE == 8 .or. UTYPE == 10 .or. UTYPE == 11) then
+           QFB_URB    = QFB_CL_URB * 0.722 ! [W/m2] considering cooling tower
+         endif
+         QFB_HT_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL ! [W]
+       endif
+     else
+       if (jmonth <= 3 .or. jmonth >= 10) then
+         QFB_CL_URB = ((COP_URB+1)/COP_URB) &
+                    * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL) ! [W/m2]
+         if ( UTYPE == 2 .or. UTYPE == 3  .or. UTYPE == 4 .or. UTYPE == 5 .or. UTYPE == 6 .or. UTYPE == 7 .or. UTYPE == 9 ) then
+           QFB_URB    = QFB_CL_URB ! [W/m2]
+          else if ( UTYPE == 1  .or. UTYPE == 8 .or. UTYPE == 10 .or. UTYPE == 11) then
+           QFB_URB    = QFB_CL_URB * 0.722 ! [W/m2] considering cooling tower
+         endif
+         QFB_HT_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL ! [W]
+       else
+         if ( abs(HEATRS_URB) > BASELOAD_LAND ) then  ! add (2023/07/18)
+           QFB_HT_URB = ((COP_URB-1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         else
+           QFB_HT_URB = ((COP_URB+1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         endif
+         QFB_URB    = QFB_HT_URB                                                ! [W/m2]
+         QFB_CL_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT ! [W]
+       endif
+     endif
+     ECAC_URB    = ( Hout/((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE)) ) / COP_URB  ! [W/floor-m2]
+     EC_URB      = ECAC_URB + AP_BASELOAD                                     ! [W/floor-m2]
+     FLXTH  = ((1.-FGR)*R*FLXTHR + FGR*R*FLXTHGR + W*FLXTHB + RW*FLXTHG)+ (AH+QFB_URB)/RHOO/CPP
+     QF_URB = AH+QFB_URB
+! -- end -- Takane-et-al.2024_GMD
    else
      FLXTH  = ((1.-FGR)*R*FLXTHR + FGR*R*FLXTHGR + W*FLXTHB + RW*FLXTHG)
+     ! -- start -- Takane-et-al.2024_GMD
+     QF_URB     = 0.
+     HEATRS_URB = 0.
+     QFB_URB    = 0.
+     QFB_CL_URB = 0.
+     QFB_HT_URB = 0.
+     ECAC_URB   = 0.
+     EC_URB     = 0.
+     COP_URB    = 0.       
+     Hin        = 0.
+     Hout       = 0.
+! -- end -- Takane-et-al.2024_GMD
    endif
    if(alhoption==1) then
      FLXHUM  = ((1.-FGR)*R*FLXHUMR + FGR*R*FLXHUMGR + W*FLXHUMB + RW*FLXHUMG)+ ALH/RHOO/ELL
@@ -1479,18 +1885,136 @@ ENDIF
  else
    if(ahoption==1) then
      FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG ) + AH/RHOO/CPP
+     ! -- start -- Takane-et-al.2024_GMD
+     QF_URB     = AH
+     HEATRS_URB = 0.
+     QFB_URB    = 0.
+     QFB_CL_URB = 0.
+     QFB_HT_URB = 0.
+     ECAC_URB   = 0.
+     EC_URB     = 0.
+     COP_URB    = 0.       
+     Hin        = 0.
+     Hout       = 0.
+   else if(ahoption==2) then
+     HEATRS_URB        = ( 2.0*HGT*697.7*60.*AKSB*(TBL(4)-TBLEND)/(DZB(4)/2.) ) &
+                       + (       R*697.7*60.*AKSR*(TRL(4)-TRLEND)/(DZR(4)/2.) ) ! [W/m2]
+     OC_BASELOAD       = PERFLO * HEAT_PERSON                              ! [W/floor-m2]
+     BASELOAD          = AP_BASELOAD + OC_BASELOAD                         ! [W/floor-m2]
+     BASELOAD_LAND     = BASELOAD &
+                       * (((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE))/(ROOF_WIDTH_kike(UTYPE)+ROAD_WIDTH_kike(UTYPE))) ! conver from [W/floor-m2] to [W/m2]
+     Hin  = BASELOAD*((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE) &
+          + HEATRS_URB*(ROOF_WIDTH_kike(UTYPE)+ROAD_WIDTH_kike(UTYPE))) ! [W]
+     if(copoption==0) then
+       COP_URB = COP
+     else if(copoption==1) then
+       CALL VAR_COP (COP, TC, TBLEND, ZR, FLOOR_HEIGHT,   & ! in
+                     HEATRS_URB, BASELOAD_LAND,           & ! out
+                     UTYPE,                               & ! out
+                     COP_URB)
+     endif
+     if (XLAT >= 0.) then
+       if (jmonth <= 3 .or. jmonth >= 10) then
+         if ( abs(HEATRS_URB) > BASELOAD_LAND ) then  ! add (2023/07/18)
+           QFB_HT_URB = ((COP_URB-1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         else
+           QFB_HT_URB = ((COP_URB+1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         endif
+         QFB_URB    = QFB_HT_URB                                                ! [W/m2]
+         QFB_CL_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT ! [W]
+       else
+         QFB_CL_URB = ((COP_URB+1)/COP_URB) &
+                    * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL) ! [W/m2]
+         if ( UTYPE == 2 .or. UTYPE == 3  .or. UTYPE == 4 .or. UTYPE == 5 .or. UTYPE == 6 .or. UTYPE == 7 .or. UTYPE == 9 ) then
+           QFB_URB    = QFB_CL_URB ! [W/m2]
+         else if ( UTYPE == 1  .or. UTYPE == 8 .or. UTYPE == 10 .or. UTYPE == 11) then
+           QFB_URB    = QFB_CL_URB * 0.722 ! [W/m2] considering cooling tower
+         endif
+         QFB_HT_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL ! [W]
+       endif
+     else
+       if (jmonth <= 3 .or. jmonth >= 10) then
+         QFB_CL_URB = ((COP_URB+1)/COP_URB) &
+                    * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL) ! [W/m2]
+         if ( UTYPE == 2 .or. UTYPE == 3  .or. UTYPE == 4 .or. UTYPE == 5 .or. UTYPE == 6 .or. UTYPE == 7 .or. UTYPE == 9 ) then
+           QFB_URB    = QFB_CL_URB ! [W/m2]
+         else if ( UTYPE == 1  .or. UTYPE == 8 .or. UTYPE == 10 .or. UTYPE == 11) then
+           QFB_URB    = QFB_CL_URB * 0.722 ! [W/m2] considering cooling tower
+         endif
+         QFB_HT_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_CL ! [W]
+       else
+         if ( abs(HEATRS_URB) > BASELOAD_LAND ) then  ! add (2023/07/18)
+           QFB_HT_URB = ((COP_URB-1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         else
+           QFB_HT_URB = ((COP_URB+1)/COP_URB) &
+                      * ((HEATRS_URB+BASELOAD_LAND)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT) ! [W/m2]
+         endif
+         QFB_URB    = QFB_HT_URB                                                ! [W/m2]
+         QFB_CL_URB = 0.
+         Hout       = abs(Hin)*(1-AB_BUILD_RATIO)*AC_FLOOR_RATIO(tloc)*AC_USAGE_RATIO_HT ! [W]
+       endif
+     endif
+     ECAC_URB    = ( Hout/((ZR/FLOOR_HEIGHT)*ROOF_WIDTH_kike(UTYPE)) ) / COP_URB  ! [W/floor-m2]
+     EC_URB      = ECAC_URB + AP_BASELOAD                                     ! [W/floor-m2]
+     FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG ) + (AH+QFB_URB)/RHOO/CPP
+     QF_URB = AH+QFB_URB
+
+!      if (I==78 .and. UTYPE == 8) then
+!           open( 30, file= 'output2.csv',position="append" )!cye-write
+!           write(30, * ) 'ECAC_URB = ',ECAC_URB, 'EC_URB = ',EC_URB, 'AH = ', AH,  'QFB_URB = ', QFB_URB, 'ahoption = ', ahoption
+!           write(30,*) 'COP_URB = ', COP_URB, 'HEATRS_URB = ', HEATRS_URB, 'BASELOAD_LAND = ', BASELOAD_LAND, 'AB_BUILD_RATIO = ', AB_BUILD_RATIO , 'AC_FLOOR_RATIO = ', AC_FLOOR_RATIO, 'AC_USAGE_RATIO_HT'
+!          ! write(30,* ) 'R = ', R,   'W = ', W, 'RW = ', RW
+!          ! write(30,* ) 'FLXTHR = ', FLXTHR  ,  'FLXTHB = ', FLXTHB ,    'FLXTHG = ', FLXTHG
+!          ! write(30,* ) 'FLXHUMR = ', FLXHUMR,  'FLXHUMB = ', FLXHUMB ,  'FLXHUMG = ', FLXHUMG
+!          ! write(30,* ) 'G0R = ', G0R ,         'G0B = ', G0B ,          'G0G = ', G0G
+!           write(30,*) ' '
+!           close(30) 
+! endif
+
+
+! -- end -- Takane-et-al.2024_GMD
    else
      FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG )
+     ! -- start -- Takane-et-al.2024_GMD
+     QF_URB     = 0.
+     HEATRS_URB = 0.
+     QFB_URB    = 0.
+     QFB_CL_URB = 0.
+     QFB_HT_URB = 0.
+     ECAC_URB   = 0.
+     EC_URB     = 0.
+     COP_URB    = 0.       
+     Hin        = 0.
+     Hout       = 0.
+! -- end -- Takane-et-al.2024_GMD
    endif
    if(alhoption==1) then
      FLXHUM = ( R*FLXHUMR + W*FLXHUMB + RW*FLXHUMG )+ ALH/RHOO/ELL
    else
      FLXHUM = ( R*FLXHUMR + W*FLXHUMB + RW*FLXHUMG )
    endif
+   IF (distributed_aerodynamics_option) THEN
+     FLXUV = CDC * UA * UA
+   ELSE
    FLXUV  = ( R*CDR + RW*CDC )*UA*UA
+   END IF
    FLXG =   ( R*G0R + W*G0B + RW*G0G )
    LNET =     R*RR + W*RB + RW*RG
  endif
+
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output2.csv',position="append" )!cye-write
+!          write(30,* ) 'CHC = ',CHC, 'CHB = ', CHB, 'CHG = ', CHG, 'CHR = ', CHR
+!          write(30,* ) 'CDC = ',CDC, 'CDR = ', CDR
+!           write(30,*) ' '
+!           close(30) 
+! endif
 
 !----------------------------------------------------------------------------
 ! Convert Unit: FLUXES and u* T* q*  --> WRF
@@ -1514,10 +2038,15 @@ ENDIF
 !  diagnostic GRID AVERAGED  PSIM  PSIH  TS QS --> WRF
 !------------------------------------------------------
 
+
+
    Z0 = Z0C 
    Z0H = Z0HC
+   ! Z0H = Z0C
    Z = ZA - ZDC
-   ZNT = Z0   ! add by Dan Li
+   ! ZNT = Z0   ! add by Dan Li
+
+
 
    XXX = 0.4*9.81*Z*TST/TA/UST/UST
 
@@ -1533,6 +2062,70 @@ ENDIF
      PSIH = 2.*ALOG((1.+X*X)/2.)
    END IF
 
+
+!----------------------------------------------------
+! RSL correction start (De Ridder / Rotach style)
+!----------------------------------------------------
+! lamda_hat = 0.9
+! mu_hat_M  = 1.3
+! mu_hat_H  = 0.95
+! nu_hat    = 0.2
+! z_hat     = 16.7*Z0C     ! 粗糙次层深度
+! ! z_hat     = 13.5
+! chi       = Z / z_hat    ! (z - zd)/z_hat; 你已令 Z = ZA - ZDC
+
+!================ 动量 M =================
+
+! ! ζ' = (1 + ν/(μM * χ)) * ζ
+! zeta_prime_M = ( 1.0 + nu_hat/(mu_hat_M * chi) ) * XXX
+
+! ! termM1 = ψ_M(zeta_prime_M)
+! IF (zeta_prime_M >= 0.) THEN
+!   termM1 = -5.0 * zeta_prime_M
+! ELSE
+!   X = (1.0 - 16.0*zeta_prime_M)**0.25
+!   termM1 = 2.0*ALOG((1.0+X)/2.0) + ALOG((1.0+X*X)/2.0) - 2.0*ATAN(X) + PI/2.0
+! END IF
+
+! ! termM2 = ln(1 + λ / (μM * χ))
+! termM2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_M * chi) )
+
+! ! termM3 = exp( - μM * χ )
+! termM3 = EXP( -mu_hat_M * chi )
+
+! PSIM_hat = termM1 * termM2 * termM3
+
+!================ 热量 H =================
+
+! zeta_prime_H = ( 1.0 + nu_hat/(mu_hat_H * chi) ) * XXX
+
+! IF (zeta_prime_H >= 0.) THEN
+!   termH1 = -5.0 * zeta_prime_H
+! ELSE
+!   X = (1.0 - 16.0*zeta_prime_H)**0.25
+!   termH1 = 2.0*ALOG((1.0+X*X)/2.0)
+! END IF
+
+! termH2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_H * chi) )
+! termH3 = EXP( -mu_hat_H * chi )
+
+! PSIH_hat = termH1 * termH2 * termH3
+
+! 叠加到原来的 MOST ψ
+! PSIM = PSIM - PSIM_hat
+! PSIH = PSIH - PSIH_hat
+!----------------------------------------------------
+! RSL correction end
+!----------------------------------------------------
+
+
+! if (ABS(ALOG(Z/Z0) - PSIM) < 1.e-8) then
+!          open( 30, file= 'output1.csv',position="append" )!cye-write
+!           write(30,*)  Z , Z0,ALOG(Z/Z0),PSIM,XXX,X,TST,TA,UST
+!           close(30) 
+! endif
+
+
    GZ1OZ0 = ALOG(Z/Z0)
    CD = 0.4**2./(ALOG(Z/Z0)-PSIM)**2.
 !
@@ -1541,14 +2134,24 @@ ENDIF
 !m   TS = TA + FLXTH/CH/UA    ! surface potential temp (flux temp)
 !m   QS = QA + FLXHUM/CH/UA   ! surface humidity
 !
-   TS = TA + FLXTH/CHS    ! surface potential temp (flux temp)
-   QS = QA + FLXHUM/CHS   ! surface humidity
+
+! CHS_LOCAL = 0.4 * UST / (ALOG(Z / Z0H) - PSIH)
+
+! if (I==209 .and. UTYPE == 8) then
+!           open( 30, file= 'output3.csv',position="append" )!cye-write
+!          ! write(30,* ) 'TA = ', TA, 'FLXTH = ', FLXTH, 'CHS = ', CHS, 'TA + FLXTH/CHS = ', TA + FLXTH/CHS
+!          write(30,* ) 'TR = ', TR, 'TC = ', TC, 'R = ', R, 'TA + FLXTH/CHS = ',  TA + FLXTH/CHS, 'R*TR + (1-R)*TC = ',R*TR + (1-R)*TC
+!           write(30,*) ' '
+!           close(30) 
+! endif
 
 !-------------------------------------------------------
 !  diagnostic  GRID AVERAGED  U10  V10  TH2  Q2 --> WRF
 !-------------------------------------------------------
 
-   XXX2 = (2./Z)*XXX
+
+   XXX2 = (2./Z)*XXX !cye
+
    IF ( XXX2 >= 1. ) XXX2 = 1.
    IF ( XXX2 <= -5. ) XXX2 = -5.
 
@@ -1560,9 +2163,61 @@ ENDIF
       PSIM2 = 2.*ALOG((1.+X)/2.) + ALOG((1.+X*X)/2.) - 2.*ATAN(X) + 2.*ATAN(1.)
       PSIH2 = 2.*ALOG((1.+X*X)/2.)
    END IF
+
+!================ RSL correction for PSIH2 (2 m heat ψ) ================
+
+
+
+! ! 2 m 的 z/L（你原来用的是 XXX2 = (2/Z) * XXX）
+! zeta2 = XXX2
+
+! ! 2 m 对应的 χ
+! chi2 = (2.0) / z_hat
+
+! ! ζ'_2 = (1 + ν/(μH * χ2)) * ζ2
+! zeta2_prime = (1.0 + nu_hat/(mu_hat_H * chi2)) * zeta2
+
+! ! termH1_2 = ψ_H(ζ'_2)
+! IF (zeta2_prime >= 0.) THEN
+!   termH1_2 = -5.0 * zeta2_prime
+! ELSE
+!   X = (1.0 - 16.0*zeta2_prime)**0.25
+!   termH1_2 = 2.0*ALOG((1.0+X*X)/2.0)
+! END IF
+
+! ! ln(1 + λ / (μH * χ2))
+! termH2_2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_H * chi2) )
+
+! ! exp(- μH * χ2)
+! termH3_2 = EXP( -mu_hat_H * chi2 )
+
+! PSIH2_hat = termH1_2 * termH2_2 * termH3_2
+
+! 叠加到原来的 PSIH2
+! PSIH2 = PSIH2 - PSIH2_hat
+!================ end of RSL correction for PSIH2 =========================
+
+
+   !   if (I==78 .and. UTYPE == 8) then
+   !        open( 30, file= 'output3.csv',position="append" )!cye-write
+   !        write(30,*) 'Z = ' , Z , ' z_hat = ', z_hat, 'Z / z_hat  = ', Z / z_hat 
+   !       ! write(30,* ) 'termH1 = ',termH1 , 'termH2 = ', termH2 , 'termH3 = ', termH3
+   !       ! write(30,* ) 'termH1 * termH2 * termH3 = ',termH1 * termH2 * termH3
+   !       ! write(30,* ) 'termH1_2 = ',termH1_2 , 'termH2_2 = ', termH2_2 , 'termH3_2 = ', termH3_2
+   !       ! write(30,* ) 'termH1_2 * termH2_2 * termH3_2 = ',termH1_2 * termH2_2 * termH3_2
+   !        write(30,*) ' '
+   !        close(30) 
+   !    endif
+
+
 !
 !m   CHS2 = 0.4*UST/(ALOG(2./Z0H)-PSIH2)
 !
+
+!  ExchCoeffSh2mBare = FrictionVelBare * ConstVonKarman / &
+!                      (log((2.0+RoughLenShBareGrd)/RoughLenShBareGrd) - MoStabCorrShBare2m) from Noah-mp, z0h=z0
+                           
+
 
    XXX10 = (10./Z)*XXX
    IF ( XXX10 >= 1. ) XXX10 = 1.
@@ -1577,24 +2232,167 @@ ENDIF
       PSIH10 = 2.*ALOG((1.+X*X)/2.)
    END IF
 
-   PSIX = ALOG(Z/Z0) - PSIM
-   PSIT = ALOG(Z/Z0H) - PSIH
+!================ RSL correction for PSIM10 (10 m momentum ψ) ================
+
+
+
+! ! 10 m 的 z/L（你原来用的是 XXX10 = (10/Z) * XXX）
+! zeta10 = XXX10         ! 防止混乱，直接用你已有的 XXX10
+
+! ! 10 m 对应的 χ：用 10m 高度代入 (z-zd)/z_hat
+! chi10 = (10.0) / z_hat     ! 你的 Z 已是 (z-zd)，这里高度就是 10 m 相对同一零平面
+
+! ! ζ'_10 = (1 + ν/(μM * χ10)) * ζ10
+! zeta10_prime = (1.0 + nu_hat/(mu_hat_M * chi10)) * zeta10
+
+! ! termM1_10 = ψ_M(ζ'_10) —— 和主层一样的 ψ 公式
+! IF (zeta10_prime >= 0.) THEN
+!   termM1_10 = -5.0 * zeta10_prime
+! ELSE
+!   X = (1.0 - 16.0*zeta10_prime)**0.25
+!   termM1_10 = 2.0*ALOG((1.0+X)/2.0) + ALOG((1.0+X*X)/2.0) - 2.0*ATAN(X) + PI/2.0
+! END IF
+
+! ! ln(1 + λ / (μM * χ10))
+! termM2_10 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_M * chi10) )
+
+! ! exp(- μM * χ10)
+! termM3_10 = EXP( -mu_hat_M * chi10 )
+
+! PSIM10_hat = termM1_10 * termM2_10 * termM3_10
+
+! 叠加到原来的 PSIM10
+! PSIM10 = PSIM10 - PSIM10_hat
+!================ end of RSL correction for PSIM10 =========================
+
+
+   ! Z = ZA - ZDC
+   
+   ! Z0LZ = 0.18*ZR*EXP(-Z/(3.5*ZR))+0.02*ZR
+   ! Z0LZ10 = 0.18*ZR*EXP(-10./(3.5*ZR))+0.02*ZR
+   
+   ! Z0HLZ = 0.1*0.18*ZR*EXP(-Z/(3.5*ZR))+0.02*ZR
+   ! Z0HLZ2 = 0.1*0.18*ZR*EXP(-2./(3.5*ZR))+0.02*ZR
+
+   ! PSIX = ALOG(Z/Z0LZ) - PSIM  
+   ! PSIT = ALOG(Z/Z0HLZ) - PSIH 
+
+   ! ! PSIX2 = ALOG(2./Z0LZ) - PSIM2
+   ! PSIT2 = ALOG(2./(Z0HLZ2)) - PSIH2  
+
+   ! PSIX10 = ALOG(10./Z0LZ10) - PSIM10  
+   ! ! PSIT10 = ALOG(10./Z0HLZ2) - PSIH10
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   PSIX = ALOG(Z/Z0) - PSIM  
+   PSIT = ALOG(Z/Z0H) - PSIH 
 
    PSIX2 = ALOG(2./Z0) - PSIM2
-   PSIT2 = ALOG(2./Z0H) - PSIH2
+   PSIT2 = ALOG(2./(Z0H)) - PSIH2  
 
-   PSIX10 = ALOG(10./Z0) - PSIM10
+   PSIX10 = ALOG(10./Z0) - PSIM10  
    PSIT10 = ALOG(10./Z0H) - PSIH10
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    U10 = U1 * (PSIX10/PSIX)       ! u at 10 m [m/s]
    V10 = V1 * (PSIX10/PSIX)       ! v at 10 m [m/s]
 
+   ! U2 = U1 * (PSIX2/PSIX)       ! u at 10 m [m/s]
+   ! V2 = V1 * (PSIX2/PSIX)       ! v at 10 m [m/s]
+
 !   TH2 = TS + (TA-TS)*(PSIT2/PSIT)   ! potential temp at 2 m [K]
 !  TH2 = TS + (TA-TS)*(PSIT2/PSIT)   ! Fei: this seems to be temp (not potential) at 2 m [K]
 !Fei: consistant with M-O theory
-   TH2 = TS + (TA-TS) *(CHS/CHS2) 
 
-   Q2 = QS + (QA-QS)*(PSIT2/PSIT)    ! humidity at 2 m       [-]
+! CH = 0.4**2 / (PSIX * PSIT)
+! CH2 = 0.4**2 / (PSIX2 * PSIT2)
+! CHS_urban = CH * UA
+! CHS2_urban = CH2 * SQRT(U2**2 + V2**2)
+
+! if (I==209 .and. UTYPE == 8) then
+!       open( 30, file= 'output3.csv',position="append" )!cye-write
+!       write(30, *) 'CH = ', CH, 'CH2 = ', CH2
+!       write(30, *) 'CHS_urban = ', CHS_urban,  'CHS2_urban = ', CHS2_urban, 'CHS_urban/CHS2_urban = ', CHS_urban/CHS2_urban
+!       write(30, *) 'U2 = ', U2, 'V2 = ', V2, 'SQRT(U2**2 + V2**2) = ', SQRT(U2**2 + V2**2), 'PSIX2/PSIX = ', PSIX2/PSIX
+!       write(30,*) ' '
+!       close(30) 
+! endif
+
+CHS_urban = 0.4*UST/( ALOG(Z/Z0H) - PSIH )!cye-add
+CHS2_urban = 0.4*UST/(ALOG(2./(Z0H)) - PSIH2) !cye-add
+
+!    IF (distributed_aerodynamics_option) THEN
+!      TS = TA + FLXTH / (ALPHAC / (RHO * CP))  ! surface potential temp (flux temp)
+!      QS = QA + FLXHUM / (ALPHAC / (RHO * CP)) ! surface humidity
+!    ELSE
+
+
+   TS = TA + FLXTH/CHS_urban    ! surface potential temp (flux temp)
+!    ! TS = (TR*CHR*R + TB * W * CHB + TG*RW*CHG)/(CHR*R + W*CHB + RW*CHG)
+   QS = QA + FLXHUM/CHS_urban  ! surface humidity
+
+
+
+
+!    ! TS = R*TR + (1-R)*TC
+!    ! TS = RW*TG + (1-R)*TC
+!    !  T_c = (TR * R + TB * W + TG * RW) / (R + RW + W)
+!    ! T_H = (TR*CHR*R + TB * W * CHB + TG*RW*CHG)/(CHR*R + W*CHB + RW*CHG)
+!    ! TS = (LW/SIG_SI/0.97)**0.25       ! Radiative temperature [K]
+!    ! ! TS = (LW/SIG_SI/0.88)**0.25       ! Radiative temperature [K]
+   
+!    END IF
+
+
+!    IF (distributed_aerodynamics_option) THEN
+!    !   CHS2_LOCAL = 0.4 * UST / (ALOG(2. / Z0H) - PSIH2)
+     TH2 = TS + (TA - TS) * (CHS_urban / CHS2_urban)
+     Q2 = QS + (QA - QS) * (CHS_urban / CHS2_urban)
+
+
+!       !     if (I==209 .and. UTYPE == 8) then
+!       !     open( 30, file= 'output.csv',position="append" )!cye-write
+!       !    !  write(30, *)  I
+!       !    !  write(30, *) 'CHC_URB = ', CHC_URB,  'CHC2_URB = ', CHC2_URB, 'CHC_URB/CHC2_URB = ', CHC_URB/CHC2_URB
+!       !     write(30, *) 'CHS_urban = ', CHS_urban,  'CHS2_urban = ', CHS2_urban, 'CHS_urban/CHS2_urban = ', CHS_urban/CHS2_urban
+!       !    !  write(30, *) 'U2 = ', U2, 'V2 = ', V2, 'SQRT(U2**2 + V2**2) = ', SQRT(U2**2 + V2**2),   'SQRT(U2**2 + V2**2)/ UA = ', SQRT(U2**2 + V2**2)/ UA
+!       !    !  write(30, *) '(SQRT(U2**2 + V2**2) / UA) * (CHS_urban/CHS2_urban) =  ', (SQRT(U2**2 + V2**2)/ UA) * (CHS_urban/CHS2_urban)
+!       !     write(30,*) 'TS,TH2,TA',TS,TH2,TA
+!       !     write(30, *) 'FLXTH', FLXTH * RHOO * CPP 
+!       !    !  write(30,* ) 'PSIT2, PSIT, PSIT2/PSIT ', PSIT2,PSIT,PSIT2/PSIT
+!       !    ! write(30,* ) '   Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2', Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2
+!       !    ! write(30,* ) 'Z, ZR, Z0, z_hat, ZDC, Z0H ', Z, ZR, Z0, z_hat, ZDC, Z0H
+!       !    ! write(30,* ) 'PSIT2, PSIT, PSIT2/PSIT ', PSIT2,PSIT,PSIT2/PSIT
+!       !    ! write(30,* ) 'ALOG(Z/(Z0H))' , ' PSIH' , ' PSIH_hat', ALOG(Z/(Z0H)) , PSIH , PSIH_hat
+!       !    ! write(30,* ) 'ALOG(2./(Z0H))' , ' PSIH2' , ' PSIH2_hat', ALOG(2./(Z0H)) , PSIH2 , PSIH2_hat
+!       !    !  write(30,*) 'TS,TH2,TA',TS,TH2,TA
+!       !    !  write(30, *)  'PSIX10, PSIX, PSIX10/PSIX' , PSIX10, PSIX, PSIX10/PSIX
+!       !    !  write(30,*)   'ALOG(Z/Z0)' , ' PSIM' , ' PSIM_hat', ALOG(Z/Z0) , PSIM , PSIM_hat
+!       !    !  write(30,*)   'ALOG(10./Z0)' , ' PSIM10' , ' PSIM10_hat', ALOG(10./Z0) , PSIM10 , PSIM10_hat
+!       !    !  write(30,*)   'U1, U10, U10/U1', U1, U10, U10/U1
+!       !    !  write(30,*)   'V1, V10, V10/V1', V1, V10, V10/V1
+!       !     write(30,*) ' '
+!       !     close(30) 
+!       ! endif
+
+
+
+!    ELSE
+
+!    ! TH2 = TS - FLXTH/CHS2_urban
+!    TH2 = TS + (TA-TS) *(CHS_urban/CHS2_urban) !bulk aerodynamic
+!    ! ! TH2 = TS + (TA-TS) *(PSIT2/PSIT) !bulk aerodynamic
+!    Q2 = QS + (QA-QS)*(CHS_urban/CHS2_urban)   ! humidity at 2 m       [-]
+! END IF
+
+
+
+! TS = (TR * R + TB * W + TG * RW) / (R + RW + W)
+! QS = (QS0R * R +  QS0G * RW + QS0B * W)/(R + RW + W)
+! TH2 = TC
+! Q2 = QC
+
+
+
 
 !   TS = (LW/SIG_SI/0.88)**0.25       ! Radiative temperature [K]
 
@@ -1638,7 +2436,8 @@ ENDIF
         PSIM=ALOG((Z+Z0)/Z0) &
             -ALOG((X+1.)**2.*(X**2.+1.)) &
             +2.*ATAN(X) &
-            +ALOG((X+1.)**2.*(X0**2.+1.)) &
+            ! +ALOG((X+1.)**2.*(X0**2.+1.)) &
+            +ALOG((X0+1.)**2.*(X0**2.+1.)) & !cye https://github.com/wrf-model/WRF/commit/6198090842e05f4c3884fd7f1162bb6ebe97175a
             -2.*ATAN(X0)
         FAIH=1./SQRT(1.-16.*XXX)
         PSIH=ALOG((Z+Z0)/Z0)+0.4*B1 &
@@ -1848,7 +2647,7 @@ ENDIF
 !  subroutine read_param
 !
 !===============================================================================
-   SUBROUTINE read_param(UTYPE,                                        & ! in
+   SUBROUTINE read_param(I,UTYPE,                                        & ! in
                          ZR,SIGMA_ZED,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,AH,    & ! out
                          CAPR,CAPB,CAPG,AKSR,AKSB,AKSG,ALBR,ALBB,ALBG, & ! out
                          EPSR,EPSB,EPSG,Z0R,Z0B,Z0G,Z0HB,Z0HG,         & ! out
@@ -1859,9 +2658,15 @@ ENDIF
                          HPERCENT_BIN,                                 & ! out
 !end BEP
                          BOUNDR,BOUNDB,BOUNDG,CH_SCHEME,TS_SCHEME,     & ! out
-                         AKANDA_URBAN,ALH)         ! out
+! -- start -- Takane-et-al.2024_GMD
+                         AKANDA_URBAN,ALH,                             & ! out
+                         HSEQUIP, HSEQUIP_SCALE_FACTOR, COP, PERFLO,   & ! out
+                         TARGTEMP,                                     &
+                         AB_BUILD_RATIO, AC_FLOOR_RATIO,               &
+                         AC_USAGE_RATIO_CL, AC_USAGE_RATIO_HT )
+! -- end -- Takane-et-al.2024_GMD)         ! out
 
-   INTEGER, INTENT(IN)  :: UTYPE 
+   INTEGER, INTENT(IN)  :: UTYPE ,I
 
    REAL, INTENT(OUT)    :: ZR,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,AH,ALH,          &
                            CAPR,CAPB,CAPG,AKSR,AKSB,AKSG,ALBR,ALBB,ALBG, &
@@ -1869,6 +2674,13 @@ ENDIF
                            EPSR,EPSB,EPSG,Z0R,Z0B,Z0G,Z0HB,Z0HG,         &
                            BETR,BETB,BETG,TRLEND,TBLEND,TGLEND
    REAL, INTENT(OUT)    :: AKANDA_URBAN
+   ! -- start -- ! Takane-et-al.2024_GMD
+   REAL, INTENT(OUT)    :: HSEQUIP_SCALE_FACTOR, COP, PERFLO, TARGTEMP
+   REAL,    DIMENSION(1:24), INTENT(OUT) :: HSEQUIP 
+   REAL, INTENT(OUT)    :: AB_BUILD_RATIO
+   REAL,    DIMENSION(1:24), INTENT(OUT) :: AC_FLOOR_RATIO
+   REAL, INTENT(OUT)    :: AC_USAGE_RATIO_CL, AC_USAGE_RATIO_HT
+! -- end -- ! Takane-et-al.2024_GMD
 !for BEP
    INTEGER,                     INTENT(OUT) :: NUMDIR
    REAL,    DIMENSION(MAXDIRS), INTENT(OUT) :: STREET_DIRECTION
@@ -1881,6 +2693,7 @@ ENDIF
 !end BEP
 
    INTEGER, INTENT(OUT) :: BOUNDR,BOUNDB,BOUNDG,CH_SCHEME,TS_SCHEME
+
 
    ZR =     ZR_TBL(UTYPE)
    SIGMA_ZED = SIGMA_ZED_TBL(UTYPE)
@@ -1925,6 +2738,17 @@ ENDIF
    CH_SCHEME = CH_SCHEME_DATA
    TS_SCHEME = TS_SCHEME_DATA
    AKANDA_URBAN = AKANDA_URBAN_TBL(UTYPE)
+   ! -- start -- Takane-et-al.2024_GMD
+   HSEQUIP = hsequip_tbl(1:24)
+   HSEQUIP_SCALE_FACTOR = HSESF_TBL(UTYPE)
+   COP = COP_TBL(UTYPE)
+   PERFLO = PERFLO_TBL(UTYPE)
+   TARGTEMP = TARGTEMP_TBL(UTYPE)
+   AB_BUILD_RATIO = AB_BUILD_RATIO_TBL(UTYPE)
+   AC_FLOOR_RATIO = AC_FLOOR_RATIO_TBL(1:24,UTYPE)
+   AC_USAGE_RATIO_CL = AC_USAGE_RATIO_CL_TBL(UTYPE)
+   AC_USAGE_RATIO_HT = AC_USAGE_RATIO_HT_TBL(UTYPE)
+! -- end -- Takane-et-al.2024_GMD
 
 !for BEP
 
@@ -1955,6 +2779,7 @@ ENDIF
 
    IMPLICIT NONE
 
+   LOGICAL                         :: distributed_aerodynamics_option = .false.
    INTEGER, INTENT(IN) :: num_soil_layers
 
 !   REAL, DIMENSION(1:num_roof_layers), INTENT(INOUT) :: DZR
@@ -2167,6 +2992,16 @@ ENDIF
             if(allocate_status /= 0) FATAL_ERROR('Error allocating PV_FRAC_ROOF_TBL in urban_param_init')
             ALLOCATE( GR_FRAC_ROOF_TBL(ICATE), stat=allocate_status )
             if(allocate_status /= 0) FATAL_ERROR('Error allocating GR_FRAC_ROOF_TBL in urban_param_init')
+! -- start -- Takane-et-al.2024_GMD
+            ALLOCATE( AB_BUILD_RATIO_TBL(ICATE), stat=allocate_status )
+            if(allocate_status /= 0) FATAL_ERROR('Error allocating AB_BUILD_RATIO_TBL in urban_param_init')
+            ALLOCATE( AC_FLOOR_RATIO_TBL(24,ICATE), stat=allocate_status ) 
+            if(allocate_status /= 0) FATAL_ERROR('Error allocating AC_FLOOR_RATIO_TBL in urban_param_init')
+            ALLOCATE( AC_USAGE_RATIO_CL_TBL(ICATE), stat=allocate_status )
+            if(allocate_status /= 0) FATAL_ERROR('Error allocating AC_USAGE_RATIO_CL_TBL in urban_param_init')
+            ALLOCATE( AC_USAGE_RATIO_HT_TBL(ICATE), stat=allocate_status )
+            if(allocate_status /= 0) FATAL_ERROR('Error allocating AC_USAGE_RATIO_HT_TBL in urban_param_init')
+! -- end -- Takane-et-al.2024_GMD
 
          endif
          numdir_tbl = 0
@@ -2269,6 +3104,10 @@ ENDIF
          read(string(indx+1:),*) ts_scheme_data
       else if (name == "AHOPTION") then
          read(string(indx+1:),*) ahoption
+! -- start -- Takane-et-al.2024_GMD
+      else if (name == "COPOPTION") then
+         read(string(indx+1:),*) copoption
+! -- end -- Takane-et-al.2024_GMD
       else if (name == "AHDIUPRF") then
          read(string(indx+1:),*) ahdiuprf(1:24)
       else if (name == "ALHOPTION") then
@@ -2370,6 +3209,22 @@ ENDIF
          read(string(indx+1:),*) gr_flag_tbl
       else if (name == "GR_TYPE") then
          read(string(indx+1:),*) gr_type_tbl
+! -- start -- Takane-et-al.2024_GMD
+      else if (name == "AB_BUILD_RATIO") then
+         read(string(indx+1:),*) ab_build_ratio_tbl(1:icate)
+      else if (name == "AC_FLOOR_RATIO") then
+         ACLOOP : do
+            read(11,'(A512)', iostat=iostatus) string
+            if (string(1:1) == "#") cycle ACLOOP
+            if (trim(string) == "") cycle ACLOOP
+            if (string == "END AC_FLOOR_RATIO") exit ACLOOP
+            read(string, *) k, ac_floor_ratio_tbl(1:24,k)
+         enddo ACLOOP
+      else if (name == "AC_USAGE_RATIO_CL") then
+         read(string(indx+1:),*) ac_usage_ratio_cl_tbl(1:icate)
+      else if (name == "AC_USAGE_RATIO_HT") then
+         read(string(indx+1:),*) ac_usage_ratio_ht_tbl(1:icate)
+! -- end -- Takane-et-al.2024_GMD
 
 !end BEP         
       else
@@ -2388,6 +3243,7 @@ ENDIF
 
       ! HGT:  Normalized height
       HGT_TBL(LC) = ZR_TBL(LC) / ( ROAD_WIDTH(LC) + ROOF_WIDTH(LC) )
+      ! HGT_TBL(LC) = 2*ZR_TBL(LC) / ( ROAD_WIDTH(LC) + ROOF_WIDTH(LC) )  !cye change, following Zonato et al. (2020)
 
       ! R:  Normalized Roof Width (a.k.a. "building coverage ratio")
       R_TBL(LC)  = ROOF_WIDTH(LC) / ( ROAD_WIDTH(LC) + ROOF_WIDTH(LC) )
@@ -2412,10 +3268,15 @@ ENDIF
       beta_macd  = 1.0
 
 
+
       ZDC_TBL(LC) = ZR_TBL(LC) * ( 1.0 + ( alpha_macd ** ( -Lambda_P ) )  * ( Lambda_P - 1.0 ) )
 
       Z0C_TBL(LC) = ZR_TBL(LC) * ( 1.0 - ZDC_TBL(LC)/ZR_TBL(LC) ) * &
            exp (-(0.5 * beta_macd * Cd / (VonK**2) * ( 1.0-ZDC_TBL(LC)/ZR_TBL(LC) ) * Lambda_F )**(-0.5))
+
+      ! ZDC_TBL(LC) = 0.2 * ZR_TBL(LC) 
+
+      ! Z0C_TBL(LC) = 0.1 * ZR_TBL(LC)
 
       IF (SF_URBAN_PHYSICS == 1) THEN
          ! Include roof height variability in Macdonald
@@ -2430,7 +3291,7 @@ ENDIF
       ! Z0HC still one-tenth of Z0C, as before ?
       !
 
-      Z0HC_TBL(LC) = 0.1 * Z0C_TBL(LC)
+      Z0HC_TBL(LC) =  0.1 * Z0C_TBL(LC)
 
       !
       ! Calculate Sky View Factor:
@@ -2449,7 +3310,267 @@ ENDIF
 
      VFGS=1.-2.*VFWS*HGT_TBL(LC)/RW_TBL(LC)
      SVF_TBL(LC)=VFGS
+
+! Start Kikegawa20240808
+     ROOF_WIDTH_kike(LC) = ROOF_WIDTH(LC)
+     ROAD_WIDTH_kike(LC) = ROAD_WIDTH(LC)
+! End Kikegawa20240808
+
    END DO
+
+! ZR_TBL(1)  = 31.0
+! ZR_TBL(2)  = 16.8
+! ZR_TBL(3)  = 10.58
+! ZR_TBL(4)  = 17.63
+! ZR_TBL(5)  = 16.50
+! ZR_TBL(6)  = 8.73
+! ZR_TBL(7)  = 8.73
+! ZR_TBL(8)  = 10.52
+! ZR_TBL(9)  = 5.4
+! ZR_TBL(10) = 21.35
+! ZR_TBL(11) = 9.61
+
+! R_TBL(1)  = 0.21
+! R_TBL(2)  = 0.246
+! R_TBL(3)  = 0.248
+! R_TBL(4)  = 0.195
+! R_TBL(5)  = 0.174
+! R_TBL(6)  = 0.085
+! R_TBL(7)  = 0.085
+! R_TBL(8)  = 0.16
+! R_TBL(9)  = 0.029
+! R_TBL(10) = 0.167
+! R_TBL(11) = 0.151
+
+! HGT_TBL(1)  = 0.45
+! HGT_TBL(2)  = 0.34
+! HGT_TBL(3)  = 0.21
+! HGT_TBL(4)  = 0.27
+! HGT_TBL(5)  = 0.23
+! HGT_TBL(6)  = 0.06
+! HGT_TBL(7)  = 0.06
+! HGT_TBL(8)  = 0.12
+! HGT_TBL(9)  = 0.02
+! HGT_TBL(10) = 0.25
+! HGT_TBL(11) = 0.04
+
+!GloUCP
+! Z0C_TBL(1) = 2.83
+! Z0C_TBL(2) = 2.37
+! Z0C_TBL(3) = 0.95
+! Z0C_TBL(4) = 2.67
+! Z0C_TBL(5) = 2.57
+! Z0C_TBL(6) = 0.56
+! Z0C_TBL(7) = 0.56
+! Z0C_TBL(8) = 0.84
+! Z0C_TBL(9) = 0.20
+! Z0C_TBL(10) = 2.18
+! Z0C_TBL(11) = 0.32
+
+!distuibuted parameter urban_parameters.tar.gz: 2010s and projected 2050s urban parameters. Source: [1].
+![1] Khanh, D.N., Varquez, A. C. G., & Kanda, M. (2023). Impact of urbanization on exposure to extreme warming in megacities. Heliyon, 9(4).
+
+! Z0C_TBL(1) = 1.3
+! Z0C_TBL(2) = 1.44
+! Z0C_TBL(3) = 0.55
+! Z0C_TBL(4) = 0.78
+! Z0C_TBL(5) = 0.76
+! Z0C_TBL(6) = 0.30
+! Z0C_TBL(7) = 0.56
+! Z0C_TBL(8) = 0.281
+! Z0C_TBL(9) = 0.20
+! Z0C_TBL(10) = 0.281
+! Z0C_TBL(11) = 0.32
+
+! ZDC_TBL(1)  = 16.06
+! ZDC_TBL(2)  = 18.49
+! ZDC_TBL(3)  = 9.57
+! ZDC_TBL(4)  = 11.50
+! ZDC_TBL(5)  = 11.12
+! ZDC_TBL(6)  = 5.16
+! ZDC_TBL(7)  = 1.79
+! ZDC_TBL(8)  = 4.77
+! ZDC_TBL(9)  = 0.54
+! ZDC_TBL(10) = 4.05
+! ZDC_TBL(11) = 2.74
+
+! Z0R_TBL(1)  = 4.26
+! Z0R_TBL(2)  = 1.18
+! Z0R_TBL(3)  = 0.51
+! Z0R_TBL(4)  = 1.98
+! Z0R_TBL(5)  = 1.92
+! Z0R_TBL(6)  = 0.30
+! Z0R_TBL(7)  = 0.30
+! Z0R_TBL(8)  = 0.49
+! Z0R_TBL(9)  = 0.09
+! Z0R_TBL(10) = 2.26
+! Z0R_TBL(11) = 0.24
+
+! ZDC_TBL(1)  = 12.67
+! ZDC_TBL(2)  = 7.84
+! ZDC_TBL(3)  = 5.08
+! ZDC_TBL(4)  = 6.78
+! ZDC_TBL(5)  = 5.77
+! ZDC_TBL(6)  = 1.79
+! ZDC_TBL(7)  = 1.79
+! ZDC_TBL(8)  = 3.64
+! ZDC_TBL(9)  = 0.54
+! ZDC_TBL(10) = 7.39
+! ZDC_TBL(11) = 2.74
+
+
+! DO LC = 1, ICATE
+
+! RW_TBL(LC) = 1.0 - R_TBL(LC)
+
+! Z0HC_TBL(LC) = 0.1 * Z0C_TBL(LC)
+
+! Lambda_FR  = SIGMA_ZED_TBL(LC) / ( ROAD_WIDTH(LC) + ROOF_WIDTH(LC) )
+! Z0R_TBL(LC) = ZR_TBL(LC) * ( 1.0 - ZDC_TBL(LC)/ZR_TBL(LC) ) &
+!       * exp ( -(0.5 * beta_macd * Cd / (VonK**2) &
+!       * ( 1.0-ZDC_TBL(LC)/ZR_TBL(LC) ) * Lambda_FR )**(-0.5))
+! !
+! ! Calculate Sky View Factor:
+! !
+! DHGT=HGT_TBL(LC)/100.
+! HGT=0.
+! VFWS=0.
+! HGT=HGT_TBL(LC)-DHGT/2.
+! do k=1,99
+!    HGT=HGT-DHGT
+!    VFWS=VFWS+0.25*(1.-HGT/SQRT(HGT**2.+RW_TBL(LC)**2.))
+! end do
+
+! VFWS=VFWS/99.
+! VFWS=VFWS*2.
+
+! VFGS=1.-2.*VFWS*HGT_TBL(LC)/RW_TBL(LC)
+! SVF_TBL(LC)=VFGS
+
+! END DO
+
+
+IF (distributed_aerodynamics_option) THEN
+
+ZR_TBL(1)  = 31.0
+ZR_TBL(2)  = 16.8
+ZR_TBL(3)  = 10.58
+ZR_TBL(4)  = 17.63
+ZR_TBL(5)  = 16.50
+ZR_TBL(6)  = 8.73
+ZR_TBL(7)  = 8.73
+ZR_TBL(8)  = 10.52
+ZR_TBL(9)  = 5.4
+ZR_TBL(10) = 21.35
+ZR_TBL(11) = 9.61
+
+R_TBL(1)  = 0.21
+R_TBL(2)  = 0.246
+R_TBL(3)  = 0.248
+R_TBL(4)  = 0.195
+R_TBL(5)  = 0.174
+R_TBL(6)  = 0.085
+R_TBL(7)  = 0.085
+R_TBL(8)  = 0.16
+R_TBL(9)  = 0.029
+R_TBL(10) = 0.167
+R_TBL(11) = 0.151
+
+HGT_TBL(1)  = 0.45
+HGT_TBL(2)  = 0.34
+HGT_TBL(3)  = 0.21
+HGT_TBL(4)  = 0.27
+HGT_TBL(5)  = 0.23
+HGT_TBL(6)  = 0.06
+HGT_TBL(7)  = 0.06
+HGT_TBL(8)  = 0.12
+HGT_TBL(9)  = 0.02
+HGT_TBL(10) = 0.25
+HGT_TBL(11) = 0.04
+
+Z0C_TBL(1) = 2.83
+Z0C_TBL(2) = 2.37
+Z0C_TBL(3) = 0.95
+Z0C_TBL(4) = 2.67
+Z0C_TBL(5) = 2.57
+Z0C_TBL(6) = 0.56
+Z0C_TBL(7) = 0.56
+Z0C_TBL(8) = 0.84
+Z0C_TBL(9) = 0.20
+Z0C_TBL(10) = 2.18
+Z0C_TBL(11) = 0.32
+
+Z0R_TBL(1)  = 4.26
+Z0R_TBL(2)  = 1.18
+Z0R_TBL(3)  = 0.51
+Z0R_TBL(4)  = 1.98
+Z0R_TBL(5)  = 1.92
+Z0R_TBL(6)  = 0.30
+Z0R_TBL(7)  = 0.30
+Z0R_TBL(8)  = 0.49
+Z0R_TBL(9)  = 0.09
+Z0R_TBL(10) = 2.26
+Z0R_TBL(11) = 0.24
+
+ZDC_TBL(1)  = 12.67
+ZDC_TBL(2)  = 7.84
+ZDC_TBL(3)  = 5.08
+ZDC_TBL(4)  = 6.78
+ZDC_TBL(5)  = 5.77
+ZDC_TBL(6)  = 1.79
+ZDC_TBL(7)  = 1.79
+ZDC_TBL(8)  = 3.64
+ZDC_TBL(9)  = 0.54
+ZDC_TBL(10) = 7.39
+ZDC_TBL(11) = 2.74
+
+
+DO LC = 1, ICATE
+
+RW_TBL(LC) = 1.0 - R_TBL(LC)
+
+Z0HC_TBL(LC) = 0.1 * Z0C_TBL(LC)
+
+
+!
+! Calculate Sky View Factor:
+!
+DHGT=HGT_TBL(LC)/100.
+HGT=0.
+VFWS=0.
+HGT=HGT_TBL(LC)-DHGT/2.
+do k=1,99
+   HGT=HGT-DHGT
+   VFWS=VFWS+0.25*(1.-HGT/SQRT(HGT**2.+RW_TBL(LC)**2.))
+end do
+
+VFWS=VFWS/99.
+VFWS=VFWS*2.
+
+VFGS=1.-2.*VFWS*HGT_TBL(LC)/RW_TBL(LC)
+SVF_TBL(LC)=VFGS
+
+END DO
+
+END IF
+
+         !  open( 30, file= 'output.csv',position="append" )!cye-write
+         !  write(30,*) Z0R_TBL
+         !  close(30) 
+
+         ! open( 30, file= 'output.csv',position="append" )!cye-write
+         ! write(30,*) 'ZR : ',ZR_TBL
+         ! write(30,*) 'ROAD_WIDTH : ',ROAD_WIDTH
+         ! write(30,*) 'ROOF_WIDTH',ROOF_WIDTH
+         ! write(30,*) 'SIGMA_ZED_TBL',SIGMA_ZED_TBL
+         ! write(30,*) 'RW_TBL',RW_TBL
+         ! write(30,*) 'R_TBL',R_TBL
+         ! write(30,*) 'HGT_TBL',HGT_TBL
+         ! write(30,*) 'ZDC_TBL',ZDC_TBL
+         ! write(30,*) 'Z0C_TBL',Z0C_TBL
+         ! write(30,*) 'Z0HC_TBL',Z0HC_TBL
+         ! write(30,*) ' '
+         ! close(30) 
 
    deallocate(roof_width)
    deallocate(road_width)
@@ -2505,7 +3626,7 @@ ENDIF
                              A_E_BEP,B_U_BEP,B_V_BEP,                      & ! inout multi-layer urban
                              B_T_BEP,B_Q_BEP,B_E_BEP,DLG_BEP,              & ! inout multi-layer urban
                              DL_U_BEP,SF_BEP,VL_BEP,                       & ! inout multi-layer urban
-                             FRC_URB2D, UTYPE_URB2D,USE_WUDAPT_LCZ)                         ! inout
+                             FRC_URB2D, UTYPE_URB2D,USE_WUDAPT_LCZ,SR_URB2D, SB_URB2D, SG_URB2D, RR_URB2D, RB_URB2D, RG_URB2D, HR_URB2D, HB_URB2D, HG_URB2D, ELER_URB2D, ELEB_URB2D, ELEG_URB2D, G0R_URB2D, G0B_URB2D, G0G_URB2D)                         ! inout
    IMPLICIT NONE
 
    INTEGER, INTENT(IN) :: ISURBAN, sf_urban_physics,use_wudapt_lcz
@@ -2540,7 +3661,23 @@ ENDIF
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: XXXB_URB2D
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: XXXG_URB2D
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: XXXC_URB2D
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: SR_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: SB_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: SG_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: RR_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: RB_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: RG_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: HR_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: HB_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: HG_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: ELER_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: ELEB_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: ELEG_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: G0R_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: G0B_URB2D
+  REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: G0G_URB2D
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: DRELR_URB2D
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: DRELB_URB2D
    REAL, DIMENSION( ims:ime, jms:jme ), INTENT(INOUT) :: DRELG_URB2D
@@ -2646,11 +3783,29 @@ ENDIF
       LH_URB2D(I,J)=0.
       G_URB2D(I,J)=0.
       RN_URB2D(I,J)=0.
-      
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
+SR_URB2D(I,J)=0.
+SB_URB2D(I,J)=0.
+SG_URB2D(I,J)=0.
+RR_URB2D(I,J)=0.
+RB_URB2D(I,J)=0.
+RG_URB2D(I,J)=0.
+HR_URB2D(I,J)=0.
+HB_URB2D(I,J)=0.
+HG_URB2D(I,J)=0.
+ELER_URB2D(I,J)=0.
+ELEB_URB2D(I,J)=0.
+ELEG_URB2D(I,J)=0.
+G0R_URB2D(I,J)=0.
+G0B_URB2D(I,J)=0.
+G0G_URB2D(I,J)=0.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cye
 !m
 !FS   FRC_URB2D(I,J)=0.
       UTYPE_URB2D(I,J)=0
       SWITCH_URB=1
+
+
 
             IF( IVGTYP(I,J) == ISURBAN)  THEN
                IF(use_wudapt_lcz==0) THEN
@@ -2683,6 +3838,15 @@ ENDIF
             ELSE
                SWITCH_URB=0
             ENDIF
+
+
+            
+            ! FRC_URB2D(I,J) = FRC_URB_TBL(UTYPE_URB) !cye
+            ! LP_URB2D(I,J)  =
+            ! LB_URB2D(I,J)  =
+            ! HGT_URB2D(I,J) = ZR_TBL(UTYPE)
+            ! MH_URB2D(I,J) = ZR_TBL(UTYPE)
+            ! STDH_URB2D(I,J) = SIGMA_ZED_TBL(UTYPE)
 
             IF (SWITCH_URB == 1) THEN
                UTYPE_URB = UTYPE_URB2D(I,J)  ! for default. high-intensity
@@ -3009,8 +4173,7 @@ ENDIF
      RETURN
 END SUBROUTINE bisection
 !===========================================================================
-
-SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
+SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD,ZT_OUT,VEGFRAC)
 
 ! ----------------------------------------------------------------------
 ! SUBROUTINE SFCDIF_URB (Urban version of SFCDIF_off)
@@ -3029,6 +4192,8 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
       REAL     SFCSPD, AKANDA, AKMS, AKHS, ZU, ZT, RDZ, CXCH
       REAL     DTHV, DU2, BTGH, WSTAR2, USTAR, ZSLU, ZSLT, RLOGU, RLOGT
       REAL     RLMO, ZETALT, ZETALU, ZETAU, ZETAT, XLU4, XLT4, XU4, XT4
+      REAL, INTENT(OUT), OPTIONAL :: ZT_OUT
+      REAL, INTENT(IN), OPTIONAL :: VEGFRAC
 !CC   ......REAL ZTFC
 
       REAL     XLU, XLT, XU, XT, PSMZ, SIMM, PSHZ, SIMH, USTARK, RLMN,  &
@@ -3056,13 +4221,13 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
 ! LECH'S SURFACE FUNCTIONS
 ! ----------------------------------------------------------------------
       PSLMU (ZZ)= -0.96* log (1.0-4.5* ZZ)
-      PSLMS (ZZ)= ZZ * RRIC -2.076* (1. -1./ (ZZ +1.))
+      PSLMS (ZZ)= (ZZ/RFC) -2.076* (1. -1./ (ZZ +1.))
       PSLHU (ZZ)= -0.96* log (1.0-4.5* ZZ)
 
 ! ----------------------------------------------------------------------
 ! PAULSON'S SURFACE FUNCTIONS
 ! ----------------------------------------------------------------------
-      PSLHS (ZZ)= ZZ * RFAC -2.076* (1. -1./ (ZZ +1.))
+      PSLHS (ZZ)= ZZ * RFAC -2.076* (1. - exp(-1.2 * ZZ))
       PSPMU (XX)= -2.* log ( (XX +1.)*0.5) - log ( (XX * XX +1.)*0.5)   &
      &        +2.* ATAN (XX)                                            &
      &- PIHF
@@ -3110,8 +4275,15 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
 ! ----------------------------------------------------------------------
 ! KCL/TL Try Kanda approach instead (Kanda et al. 2007, JAMC)
 !      ZT = EXP (ZILFC * SQRT (USTAR * Z0))* Z0
+      IF (PRESENT(VEGFRAC)) THEN
+        ! Kawai et al. (2009) JAMC
+        ZT = EXP (2.0-(AKANDA-0.9*VEGFRAC**0.29)*(SQVISC**2 * USTAR * Z0)**0.25)* Z0
+      ELSE
       ZT = EXP (2.0-AKANDA*(SQVISC**2 * USTAR * Z0)**0.25)* Z0
+      END IF
       
+      ! ZT = 0.1 * Z0 !cye
+
       ZSLU = ZLM + ZU
 
       ZSLT = ZLM + ZT
@@ -3177,9 +4349,18 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
 ! ----------------------------------------------------------------------
          END IF
             USTAR = MAX (SQRT (AKMS * SQRT (DU2+ WSTAR2)),EPSUST)
-            !KCL/TL
-            !ZT = EXP (ZILFC * SQRT (USTAR * Z0))* Z0
+            ! KCL/TL
+            ! ZT = EXP (ZILFC * SQRT (USTAR * Z0))* Z0
+            IF (PRESENT(VEGFRAC)) THEN
+              ! Kawai et al. (2009) JAMC
+              ZT = EXP (2.0-(AKANDA-0.9*VEGFRAC**0.29)*(SQVISC**2 * USTAR * Z0)**0.25)* Z0
+            ELSE
             ZT = EXP (2.0-AKANDA*(SQVISC**2 * USTAR * Z0)**0.25)* Z0
+            END IF
+
+            ! ZT = 0.1 * Z0 !cye
+
+            
             ZSLT = ZLM + ZT
             RLOGT = log (ZSLT / ZT)
             USTARK = USTAR * VKRM
@@ -3203,10 +4384,11 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
       END DO
 
       CD = USTAR*USTAR/SFCSPD**2
+
+      IF (PRESENT(ZT_OUT)) ZT_OUT = ZT
 ! ----------------------------------------------------------------------
   END SUBROUTINE SFCDIF_URB
 ! ----------------------------------------------------------------------
-!===========================================================================
 !  DIREVAP 
 !  CALCULATE DIRECT SOIL EVAPORATION
 !===========================================================================
@@ -4058,5 +5240,63 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD)
 ! ----------------------------------------------------------------------
   END SUBROUTINE TDFCND
 ! ----------------------------------------------------------------------
+! -- start -- Takane-et-al.2024_GMD
+! ----------------------------------------------------------------------
+      SUBROUTINE VAR_COP (COP, TC, TBLEND, ZR, FLOOR_HEIGHT,   & ! in
+                          HEATRS_URB, BASELOAD_LAND,           & ! out
+                          UTYPE,                               & ! out
+                          COP_URB)
+! ----------------------------------------------------------------------
+      IMPLICIT NONE
+      REAL                :: COP, TARGTEMP, ZR, FLOOR_HEIGHT, TBLEND
+      REAL, INTENT(IN)    :: TC
+      REAL, INTENT(IN)    :: HEATRS_URB
+      REAL                :: BASELOAD_LAND
+      INTEGER, INTENT(IN) :: UTYPE ! urban type [1=Commercial/Industrial, 2=High-intensity residential, 
+                                   ! 3=low-intensity residential]
+      REAL, INTENT(OUT)   :: COP_URB
+      REAL                :: X, Y, Z, g
+      REAL                :: fq, fp, fx
+ 
+!C0210 COP estimation parameter set
+      X = TC - 273.15     ! outdoor temperaturu (deg C)
+      Y = TBLEND - 273.15 ! 室内空気湿球温度（℃）
+      Z = 1.              ! 部分負荷率（-）
+
+!C0210 g ： 能力、入力特性の変曲判定式
+      g = 52.8 - 1.65*X - Y
+
+!C0210 fq：能力特性値の算出
+      if ( g .GE. 0.0 ) then
+        fq = 3.50*10.0**(-1) + 3.82*10.0**(-2)*Y
+      else
+        fq = 3.49*10.0**(-1) + 2.93*10.0**(-3)*X + 4.35*10.0**(-2)*Y  &
+           - 4.20*10.0**(-4)*X*Y
+      end if
+
+!C0210 fp：入力特性値の算出
+      if ( g .GE. 0.0 ) then
+        fp = 5.68*10.0**(-1) + 2.80*10.0**(-3)*X + 9.19*10.0**(-3)*Y  &
+           - 3.10*10.0**(-5)*X*Y
+      else
+        fp = 1.66*10.0**(-1) + 1.71*10.0**(-2)*X + 1.80*10.0**(-2)*Y  &
+           - 1.64*10.0**(-4)*X*Y
+      end if
+
+      if ( UTYPE == 1 ) then  ! MEACH1
+!C0210 fx：部分負荷特性値の算出
+        fx = 0.852618*Z**2 - 0.03397*Z + 0.18353   !Kike20171120 add functiondefined by Mr.Kuwayama
+      else                    ! MEACH2
+        fx = 0.788958*Z**2 + 0.099231*Z + 0.113276
+      endif
+
+!C0210 COP_URBの算出
+      COP_URB =  COP*fq*Z / (fp*fx)
+
+      RETURN
+! ----------------------------------------------------------------------
+  END SUBROUTINE VAR_COP
+! ----------------------------------------------------------------------
+! -- end -- Takane-et-al.2024_GMD
 !===========================================================================
 END MODULE module_sf_urban

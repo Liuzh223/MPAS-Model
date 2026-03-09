@@ -119,6 +119,7 @@ contains
     NoahmpIO%ZNT     (I) = noahmp%energy%state%RoughLenMomSfcToAtm
     NoahmpIO%T2MVXY  (I) = noahmp%energy%state%TemperatureAir2mVeg
     NoahmpIO%T2MBXY  (I) = noahmp%energy%state%TemperatureAir2mBare
+    NoahmpIO%T2MXY   (I) = noahmp%energy%state%TemperatureAir2m !cye add 2025-02-25
     NoahmpIO%TRADXY  (I) = noahmp%energy%state%TemperatureRadSfc
     NoahmpIO%FVEGXY  (I) = noahmp%energy%state%VegFrac
     NoahmpIO%RSSUNXY (I) = noahmp%energy%state%ResistanceStomataSunlit
@@ -135,6 +136,33 @@ contains
     NoahmpIO%CHB2XY  (I) = noahmp%energy%state%ExchCoeffSh2mBare
     NoahmpIO%Q2MVXY  (I) = noahmp%energy%state%SpecHumidity2mVeg /(1.0-noahmp%energy%state%SpecHumidity2mVeg)  ! spec humidity to mixing ratio
     NoahmpIO%Q2MBXY  (I) = noahmp%energy%state%SpecHumidity2mBare/(1.0-noahmp%energy%state%SpecHumidity2mBare)
+   !  NoahmpIO%Q2MXY   (I) = noahmp%energy%state%SpecHumidity2m/(1.0-noahmp%energy%state%SpecHumidity2m) !cye add 2025-02-25
+    NoahmpIO%Q2MXY   (I) = NoahmpIO%Q2MBXY(I) * ( 1 - NoahmpIO%FVEGXY(I) ) + NoahmpIO%Q2MVXY(I) * NoahmpIO%FVEGXY(I) !cye add 2025-06-03
+
+
+
+!    IF(NoahmpIO%IVGTYP(I) == NoahmpIO%ISURBAN_TABLE .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_1_TABLE .or. &
+!       NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_2_TABLE   .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_3_TABLE .or. &
+!       NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_4_TABLE   .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_5_TABLE .or. &
+!       NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_6_TABLE   .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_7_TABLE .or. &
+!       NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_8_TABLE   .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_9_TABLE .or. &
+!       NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_10_TABLE  .or. NoahmpIO%IVGTYP(I) == NoahmpIO%LCZ_11_TABLE ) THEN
+
+
+! open( 30, file= 'output1.csv',position="append" )!cye-write
+!                     write(30,*)  'I = ',I, 'IVGTYP(I) = ',NoahmpIO%IVGTYP(I), &
+!                     'NoahmpIO%Q2MBXY(I) = ',NoahmpIO%Q2MBXY(I), &
+!                     'NoahmpIO%Q2MVXY(I) = ',NoahmpIO%Q2MVXY(I), &
+!                     'NoahmpIO%FVEGXY(I) = ',NoahmpIO%FVEGXY(I), &
+!                     'NoahmpIO%Q2MXY(I) = ',NoahmpIO%Q2MXY(I) 
+!                     write(30,*) ' '
+! close(30) 
+
+
+
+!    ENDIF
+
+
     NoahmpIO%IRRSPLH (I) = NoahmpIO%IRRSPLH(I) + &
                              (noahmp%energy%flux%HeatLatentIrriEvap * noahmp%config%domain%MainTimeStep)
     NoahmpIO%TSLB    (I,1:NumSoilLayer)       = noahmp%energy%state%TemperatureSoilSnow(1:NumSoilLayer)

@@ -459,7 +459,7 @@ CONTAINS
      REAL, OPTIONAL, DIMENSION(1:num_roof_layers), INTENT(IN) :: DZR
      REAL, OPTIONAL, DIMENSION(1:num_wall_layers), INTENT(IN) :: DZB
      REAL, OPTIONAL, DIMENSION(1:num_road_layers), INTENT(IN) :: DZG
-     REAL, OPTIONAL, INTENT(IN) :: DECLIN_URB
+     REAL, OPTIONAL, INTENT(INOUT) :: DECLIN_URB
      REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: COSZ_URB2D
      REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: OMG_URB2D
      REAL, OPTIONAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: XLAT_URB2D
@@ -571,7 +571,7 @@ CONTAINS
      REAL, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: FRC_URB2D
      INTEGER, DIMENSION( ims:ime, jms:jme ), INTENT(IN) :: UTYPE_URB2D
 
-
+REAL :: SR_URB, SB_URB, SG_URB, RR_URB, RB_URB, RG_URB, HR_URB, HB_URB, HG_URB, ELER_URB, ELEB_URB, ELEG_URB, G0R_URB, G0B_URB, G0G_URB  !cye-add
 ! output variables urban --> lsm
      REAL :: TS_URB     ! surface radiative temperature    [K]
      REAL :: QS_URB     ! surface humidity                 [-]
@@ -1423,7 +1423,7 @@ CONTAINS
 !
 ! Call urban
             CALL cal_mon_day(julian,julyr,jmonth,jday)
-            CALL urban(LSOLAR_URB,                                      & ! I
+            CALL urban(I,J,LSOLAR_URB,                                      & ! I
                        num_roof_layers,num_wall_layers,num_road_layers, & ! C
                        DZR,DZB,DZG,                                     & ! C
                        UTYPE_URB,TA_URB,QA_URB,UA_URB,U1_URB,V1_URB,SSG_URB, & ! I
@@ -1441,9 +1441,9 @@ CONTAINS
                        U10_URB, V10_URB, TH2_URB, Q2_URB,               & ! O
                        UST_URB,mh_urb, stdh_urb, lf_urb, lp_urb,        & ! 0
                        hgt_urb,frc_urb,lb_urb, check,CMCR_URB,TGR_URB,  & ! H
-                       TGRL_URB,SMR_URB,CMGR_URB,CHGR_URB,jmonth,       & ! H
+                       TGRL_URB,SMR_URB,CMGR_URB,CHGR_URB,jmonth,jday,       & ! H!cye
                        DRELR_URB,DRELB_URB,                             & ! H
-                       DRELG_URB,FLXHUMR_URB,FLXHUMB_URB,FLXHUMG_URB)                            
+                       DRELG_URB,FLXHUMR_URB,FLXHUMB_URB,FLXHUMG_URB,SR_URB, SB_URB, SG_URB, RR_URB, RB_URB, RG_URB, HR_URB, HB_URB, HG_URB, ELER_URB, ELEB_URB, ELEG_URB, G0R_URB, G0B_URB, G0G_URB)                            
 
 #if 0
           IF(IPRINT) THEN
