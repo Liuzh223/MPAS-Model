@@ -350,6 +350,8 @@
        write(mminlu,'(a)') 'USGS'
     case('MODIFIED_IGBP_MODIS_NOAH')
        write(mminlu,'(a)') 'MODIFIED_IGBP_MODIS_NOAH'
+    case('CGLC_LCZ')
+       write(mminlu,'(a)') 'MODIFIED_IGBP_MODIS_NOAH'
     case default
          call mpas_log_write('*****************************************************************', messageType=MPAS_LOG_ERR)
          call mpas_log_write('Invalid land use dataset '''//trim(config_landuse_data) &
@@ -394,6 +396,9 @@
     case('MODIFIED_IGBP_MODIS_NOAH')
        call mpas_log_write('Using 20-class MODIS 30-arc-second land cover dataset')
        geog_sub_path = 'modis_landuse_20class_30s/'
+    case('CGLC_CLZ')
+       call mpas_log_write('Using 20-class MODIS 30-arc-second land cover dataset')
+       geog_sub_path = 'mpas_cglc_lcz/'
     case default
        call mpas_log_write('*****************************************************************', messageType=MPAS_LOG_ERR)
        call mpas_log_write('Invalid land use dataset '''//trim(config_landuse_data) &
