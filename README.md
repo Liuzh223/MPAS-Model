@@ -15,7 +15,8 @@ At present, BEP/BEM is not coupled in this branch – only SLUCM is available as
 
 The default configuration uses Local Climate Zones (LCZ) to describe urban categories:
 
-Global LCZ-based datasets for MPAS-Urban will be uploaded later and documented together with preprocessing tools.
+Global LCZ-based datasets for MPAS-Urban is uploaded with name .
+can be used by setting config_landuse_data = 'CGLC_LCZ' in the namelist.init_atmosphere
 
 How to enable SLUCM
 To run MPAS-Urban with SLUCM, turn on the urban physics switch in namelist.atmosphere:
