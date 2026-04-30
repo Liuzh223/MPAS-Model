@@ -396,7 +396,7 @@
     case('MODIFIED_IGBP_MODIS_NOAH')
        call mpas_log_write('Using 20-class MODIS 30-arc-second land cover dataset')
        geog_sub_path = 'modis_landuse_20class_30s/'
-    case('CGLC_CLZ')
+    case('CGLC_LCZ')
        call mpas_log_write('Using 20-class MODIS 30-arc-second land cover dataset')
        geog_sub_path = 'mpas_cglc_lcz/'
     case default
