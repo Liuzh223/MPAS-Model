@@ -741,6 +741,16 @@
      description="urban building moisture flux" missing_value="0.0"/>
 <var name="flxhumg_urb2dxy" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"
      description="urban ground moisture flux" missing_value="0.0"/>
+<var name="trl_urb3dxy" type="real" dimensions="nSoilLevels nCells Time" units="K"
+     description="urban roof layer temperature" missing_value="0.0"/>
+<var name="tbl_urb3dxy" type="real" dimensions="nSoilLevels nCells Time" units="K"
+     description="urban wall layer temperature" missing_value="0.0"/>
+<var name="tgl_urb3dxy" type="real" dimensions="nSoilLevels nCells Time" units="K"
+     description="urban ground layer temperature" missing_value="0.0"/>
+<var name="tgrl_urb3dxy" type="real" dimensions="nSoilLevels nCells Time" units="K"
+     description="urban road layer temperature" missing_value="0.0"/>
+<var name="smr_urb3dxy" type="real" dimensions="nSoilLevels nCells Time" units="unitless"
+     description="urban road moisture profile" missing_value="0.0"/>
 <var name="frc_urb2dxy" type="real" dimensions="nCells Time" units="unitless"
      description="urban fraction" missing_value="0.0"/>
 <var name="chsxy" type="real" dimensions="nCells Time" units="m s^-1"
