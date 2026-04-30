@@ -516,6 +516,7 @@ use module_wrf_error
    
    INTEGER :: BOUNDR, BOUNDB, BOUNDG
    INTEGER :: CH_SCHEME, TS_SCHEME
+   INTEGER :: SURFACE_DIAGNOSE = 2 !cye add surface diagnose method, 1=default, 2=new
 
    LOGICAL :: SHADOW  ! [true=consider svf and shadow effects, false=consider svf effect only]
 
@@ -665,14 +666,6 @@ REAL :: Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2
 !------------------------------------------cye-add-RSL-----------------------------------
 REAL :: U2,V2,CH2,Z0HR !cye
 
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output1.csv',position="append" )!cye-write
-!          write(30,* ) 'TA = ', TA,   ' TR = ', TR,  ' TB = ', TB , ' TC = ', TC,' TG = ', TG, ' TH2 = ',TH2 , ' TS = ', TS
-!          ! write(30,* ) 'TS + (TA-TS) *(CHS/CHS2) = ', TS + (TA-TS) *(CHS/CHS2), ' TS - SH/ (RHOO*CPP*CHS2) = ', TS  - SH/ (RHOO*CPP*CHS2)
-!           write(30,*) ' '
-!           close(30) 
-! endif
-
 ! Miao, 2007/01/17, cal. ah
 ! -- start -- Takane-et-al.2024_GMD
 !   if(ahoption==1) then
@@ -709,14 +702,7 @@ REAL :: U2,V2,CH2,Z0HR !cye
 
 ! Glotfelty, 2012/07/05, NUDAPT Modification
 
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output.csv',position="append" )!cye-write
-!          !  write(30,* )'UTYPE = ', UTYPE, 'ZR = ', ZR, 'SIGMA_ZED = ', SIGMA_ZED, 'Z0C = ', Z0C, 'Z0HC = ', Z0HC, 'ZDC = ', ZDC, 'SVF = ', SVF, 'R = ', R, 'RW = ', RW, 'HGT = ', HGT, 'AH = ', AH
-!          ! write(30,*) 'mh_urb = ', mh_urb, 'ZR = ', ZR, 'Z0C = ', Z0C, 'Z0R = ', Z0R, 'SVF = ', SVF, 'HGT = ', HGT, 'lp_urb = ', lp_urb, 'R = ', R, &
-!          ! 'hgt_urb = ', hgt_urb,'stdh_urb = ', stdh_urb, 'lf_urb = ', lf_urb, 'frc_urb = ', frc_urb,'lb_urb = ', lb_urb
-!          write(30,* ) BUILDING_WIDTH,STREET_WIDTH
-!           close(30) 
-! endif
+
 
  if(mh_urb.gt.0.0)THEN 
 !  if(mh_urb.ge.0.0)THEN 
@@ -816,14 +802,7 @@ REAL :: U2,V2,CH2,Z0HR !cye
    ENDIF
 
 
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output.csv',position="append" )!cye-write
-!          !  write(30,* )'UTYPE = ', UTYPE, 'ZR = ', ZR, 'SIGMA_ZED = ', SIGMA_ZED, 'Z0C = ', Z0C, 'Z0HC = ', Z0HC, 'ZDC = ', ZDC, 'SVF = ', SVF, 'R = ', R, 'RW = ', RW, 'HGT = ', HGT, 'AH = ', AH
-!          write(30,*) 'mh_urb = ', mh_urb, 'ZR = ', ZR, 'Z0C = ', Z0C, 'Z0R = ', Z0R, 'SVF = ', SVF, 'HGT = ', HGT, 'lp_urb = ', lp_urb, 'R = ', R, &
-!          'hgt_urb = ', hgt_urb,'stdh_urb = ', stdh_urb, 'lf_urb = ', lf_urb, 'frc_urb = ', frc_urb,'lb_urb = ', lb_urb
-!          write(30,* ) ' '
-!           close(30) 
-! endif
+
 
   !Calculate the following urban canyon geometry parameters following Macdonald's (1998) formulations
       Cd         = 1.2
@@ -926,12 +905,6 @@ REAL :: U2,V2,CH2,Z0HR !cye
    VFWS=VFWG
    VFWW=1.-2.*VFWG
 
-!  if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output.csv',position="append" )!cye-write
-!           write(30,* )'W = ', W, 'VFGS = ', VFGS, 'VFWG = ', VFWG, 'VFWS = ', VFWS, 'VFWW = ', VFWW
-!           write(30,* ) ' '
-!           close(30) 
-! endif
 
 !-------------------------------------------------------------------------------
 ! Convert unit from MKS to cgs
@@ -991,73 +964,6 @@ REAL :: U2,V2,CH2,Z0HR !cye
      UC=UR*EXP(-BB*(1.-ZC/ZR))
 
 
-! if (UTYPE == 1) then
-!           open( 30, file= 'output51.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 2) then
-!           open( 30, file= 'output52.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!          write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 3) then
-!           open( 30, file= 'output53.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 4) then
-!           open( 30, file= 'output54.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 5) then
-!           open( 30, file= 'output55.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 6) then
-!           open( 30, file= 'output56.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 7) then
-!           open( 30, file= 'output57.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 8) then
-!           open( 30, file= 'output58.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 9) then
-!           open( 30, file= 'output59.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 10) then
-!           open( 30, file= 'output60.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! elseif (UTYPE == 11) then
-!           open( 30, file= 'output61.csv',position="append" )!cye-write
-!           write(30,* ) 'ZA = ', ZA, 'ZR = ', ZR, 'ZDC = ', ZDC, 'Z0C = ',  Z0C, 'I = ' , I, 'UTYPE = ', UTYPE
-!           write(30,* ) 'ZC = ', ZC, 'XLB = ', XLB, 'BB = ', BB, 'UA = ', UA, 'UR = ', UR, 'UC = ', UC
-!           write(30,*) ' '
-!           close(30) 
-! endif
 
 
    ELSE
@@ -1136,18 +1042,7 @@ REAL :: U2,V2,CH2,Z0HR !cye
       !  SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB) ！cye add 2026-06-12
        SB2=SG1*ALBG/(1.-ALBG)*VFWG*(1.-ALBB) + SB1*ALBB*VFWW
 
-! if (I==78 .and. UTYPE == 8) then
-!           open( 30, file= 'output1.csv',position="append" )!cye-write
-!          ! write(30,* ) 'TR = ', TR,'SR = ', SR/RHO/CP/100. , ' RR = ', RR/RHO/CP/100. , ' HR = ', HR/RHO/CP/100. , ' ELER = ', ELER/RHO/CP/100. , ' G0R = ', G0R/RHO/CP/100.
-!          write(30,* ) 'FAI = ', FAI, ' THEATAS= ', THEATAS, ' THEATAZ= ', THEATAZ
-!          write(30,* ) ' SNT= ', SNT, ' CNT= ', CNT
-!          write(30,* ) ' HOUI1= ', HOUI1, ' HOUI2= ', HOUI2, ' HOUI3= ', HOUI3, ' HOUI4= ', HOUI4, ' HOUI5= ', HOUI5, ' HOUI6= ', HOUI6, ' HOUI7= ', HOUI7, ' HOUI8= ', HOUI8
-!          write(30,*) 'SD= ', SD, ' SQ= ', SQ
-!             write(30,* ) ' SLX1= ', SLX1, ' SLX2= ', SLX2, ' SLX3= ', SLX3, ' SLX4= ', SLX4, ' SLX5= ', SLX5, ' SLX6= ', SLX6, ' SLX7= ', SLX7, ' SLX8= ', SLX8, ' SLX= ', SLX
-!             write(30,* ) 'SR1= ', SR1, 'SGR1= ', SGR1, 'SG1= ', SG1, 'SB1= ', SB1, 'SG2= ', SG2, 'SB2= ', SB2
-!           write(30,*) ' '
-!           close(30) 
-! endif
+
 
      END IF
 
@@ -1453,11 +1348,6 @@ IF (.not. distributed_aerodynamics_option) THEN
    ! CALL SFCDIF_URB(2.,Z0C,T1VC,TH2V,UA,AKANDA_URBAN,CMC2_URB,CHC2_URB,RLMO_URB,CDC2)
    ! ALPHAC2 =  RHO*CP*CHC2_URB
 
-   ! if (I==1500 .and. UTYPE == 8) then
-   !        open( 30, file= 'output3.csv',position="append" )!cye-write
-   !        write(30,*) 'CHC_URB = ', CHC_URB,'CHC2_URB = ', CHC2_URB, 'CHC_URB/CHC2_URB = ', CHC_URB/CHC2_URB
-   !        close(30) 
-   !    endif
 
    IF (CH_SCHEME == 1) THEN 
 
@@ -1691,14 +1581,6 @@ ENDIF
 
      CALL multi_layer(num_road_layers,BOUNDG,G0G,CAPG,AKSG,TGL,DZG,DELT,TGLEND)
 
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output3.csv',position="append" )!cye-write
-!           write(30,* ) 'SG = ',SG , 'RG = ',RG , 'HG = ' , HG , 'ELEG = ' , ELEG , 'G0G = ', G0G, 'GF = ', GF, 'TG = ', TG,'TC = ',TC, 'TG - TC = ', TG - TC, 'CHG = ', CHG, 'UC = ', UC
-!           write(30,* ) 'SB = ',SB , 'RB = ',RB , 'HB = ' , HB , 'ELEB = ' , ELEB , 'G0B = ', G0B, 'BF = ', F, 'TB = ', TB,'TC = ',TC, 'TB - TC = ', TB - TC, 'CHB = ', CHB, 'UC = ', UC
-!           write(30,* ) 'SR = ',SR , 'RR = ',RR , 'HR = ' , HR , 'ELER = ' , ELER , 'G0R = ', G0R, 'RF = ', SR + RR - HR - ELER - G0R, 'TR = ', TR,'TA = ',TA, 'TR - TA = ', TR - TA, 'CHR = ', CHR, 'UA = ', UA
-!           write(30, *) ' '
-!           close(30) 
-! endif
 
    ELSE
 
@@ -1965,17 +1847,7 @@ ENDIF
      FLXTH  = ( R*FLXTHR  + W*FLXTHB  + RW*FLXTHG ) + (AH+QFB_URB)/RHOO/CPP
      QF_URB = AH+QFB_URB
 
-!      if (I==78 .and. UTYPE == 8) then
-!           open( 30, file= 'output2.csv',position="append" )!cye-write
-!           write(30, * ) 'ECAC_URB = ',ECAC_URB, 'EC_URB = ',EC_URB, 'AH = ', AH,  'QFB_URB = ', QFB_URB, 'ahoption = ', ahoption
-!           write(30,*) 'COP_URB = ', COP_URB, 'HEATRS_URB = ', HEATRS_URB, 'BASELOAD_LAND = ', BASELOAD_LAND, 'AB_BUILD_RATIO = ', AB_BUILD_RATIO , 'AC_FLOOR_RATIO = ', AC_FLOOR_RATIO, 'AC_USAGE_RATIO_HT'
-!          ! write(30,* ) 'R = ', R,   'W = ', W, 'RW = ', RW
-!          ! write(30,* ) 'FLXTHR = ', FLXTHR  ,  'FLXTHB = ', FLXTHB ,    'FLXTHG = ', FLXTHG
-!          ! write(30,* ) 'FLXHUMR = ', FLXHUMR,  'FLXHUMB = ', FLXHUMB ,  'FLXHUMG = ', FLXHUMG
-!          ! write(30,* ) 'G0R = ', G0R ,         'G0B = ', G0B ,          'G0G = ', G0G
-!           write(30,*) ' '
-!           close(30) 
-! endif
+
 
 
 ! -- end -- Takane-et-al.2024_GMD
@@ -2008,13 +1880,7 @@ ENDIF
    LNET =     R*RR + W*RB + RW*RG
  endif
 
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output2.csv',position="append" )!cye-write
-!          write(30,* ) 'CHC = ',CHC, 'CHB = ', CHB, 'CHG = ', CHG, 'CHR = ', CHR
-!          write(30,* ) 'CDC = ',CDC, 'CDR = ', CDR
-!           write(30,*) ' '
-!           close(30) 
-! endif
+
 
 !----------------------------------------------------------------------------
 ! Convert Unit: FLUXES and u* T* q*  --> WRF
@@ -2038,14 +1904,13 @@ ENDIF
 !  diagnostic GRID AVERAGED  PSIM  PSIH  TS QS --> WRF
 !------------------------------------------------------
 
-
+IF (SURFACE_DIAGNOSE == 1 ) THEN
 
    Z0 = Z0C 
    Z0H = Z0HC
    ! Z0H = Z0C
    Z = ZA - ZDC
    ! ZNT = Z0   ! add by Dan Li
-
 
 
    XXX = 0.4*9.81*Z*TST/TA/UST/UST
@@ -2062,70 +1927,6 @@ ENDIF
      PSIH = 2.*ALOG((1.+X*X)/2.)
    END IF
 
-
-!----------------------------------------------------
-! RSL correction start (De Ridder / Rotach style)
-!----------------------------------------------------
-! lamda_hat = 0.9
-! mu_hat_M  = 1.3
-! mu_hat_H  = 0.95
-! nu_hat    = 0.2
-! z_hat     = 16.7*Z0C     ! 粗糙次层深度
-! ! z_hat     = 13.5
-! chi       = Z / z_hat    ! (z - zd)/z_hat; 你已令 Z = ZA - ZDC
-
-!================ 动量 M =================
-
-! ! ζ' = (1 + ν/(μM * χ)) * ζ
-! zeta_prime_M = ( 1.0 + nu_hat/(mu_hat_M * chi) ) * XXX
-
-! ! termM1 = ψ_M(zeta_prime_M)
-! IF (zeta_prime_M >= 0.) THEN
-!   termM1 = -5.0 * zeta_prime_M
-! ELSE
-!   X = (1.0 - 16.0*zeta_prime_M)**0.25
-!   termM1 = 2.0*ALOG((1.0+X)/2.0) + ALOG((1.0+X*X)/2.0) - 2.0*ATAN(X) + PI/2.0
-! END IF
-
-! ! termM2 = ln(1 + λ / (μM * χ))
-! termM2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_M * chi) )
-
-! ! termM3 = exp( - μM * χ )
-! termM3 = EXP( -mu_hat_M * chi )
-
-! PSIM_hat = termM1 * termM2 * termM3
-
-!================ 热量 H =================
-
-! zeta_prime_H = ( 1.0 + nu_hat/(mu_hat_H * chi) ) * XXX
-
-! IF (zeta_prime_H >= 0.) THEN
-!   termH1 = -5.0 * zeta_prime_H
-! ELSE
-!   X = (1.0 - 16.0*zeta_prime_H)**0.25
-!   termH1 = 2.0*ALOG((1.0+X*X)/2.0)
-! END IF
-
-! termH2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_H * chi) )
-! termH3 = EXP( -mu_hat_H * chi )
-
-! PSIH_hat = termH1 * termH2 * termH3
-
-! 叠加到原来的 MOST ψ
-! PSIM = PSIM - PSIM_hat
-! PSIH = PSIH - PSIH_hat
-!----------------------------------------------------
-! RSL correction end
-!----------------------------------------------------
-
-
-! if (ABS(ALOG(Z/Z0) - PSIM) < 1.e-8) then
-!          open( 30, file= 'output1.csv',position="append" )!cye-write
-!           write(30,*)  Z , Z0,ALOG(Z/Z0),PSIM,XXX,X,TST,TA,UST
-!           close(30) 
-! endif
-
-
    GZ1OZ0 = ALOG(Z/Z0)
    CD = 0.4**2./(ALOG(Z/Z0)-PSIM)**2.
 !
@@ -2135,15 +1936,6 @@ ENDIF
 !m   QS = QA + FLXHUM/CH/UA   ! surface humidity
 !
 
-! CHS_LOCAL = 0.4 * UST / (ALOG(Z / Z0H) - PSIH)
-
-! if (I==209 .and. UTYPE == 8) then
-!           open( 30, file= 'output3.csv',position="append" )!cye-write
-!          ! write(30,* ) 'TA = ', TA, 'FLXTH = ', FLXTH, 'CHS = ', CHS, 'TA + FLXTH/CHS = ', TA + FLXTH/CHS
-!          write(30,* ) 'TR = ', TR, 'TC = ', TC, 'R = ', R, 'TA + FLXTH/CHS = ',  TA + FLXTH/CHS, 'R*TR + (1-R)*TC = ',R*TR + (1-R)*TC
-!           write(30,*) ' '
-!           close(30) 
-! endif
 
 !-------------------------------------------------------
 !  diagnostic  GRID AVERAGED  U10  V10  TH2  Q2 --> WRF
@@ -2164,59 +1956,10 @@ ENDIF
       PSIH2 = 2.*ALOG((1.+X*X)/2.)
    END IF
 
-!================ RSL correction for PSIH2 (2 m heat ψ) ================
-
-
-
-! ! 2 m 的 z/L（你原来用的是 XXX2 = (2/Z) * XXX）
-! zeta2 = XXX2
-
-! ! 2 m 对应的 χ
-! chi2 = (2.0) / z_hat
-
-! ! ζ'_2 = (1 + ν/(μH * χ2)) * ζ2
-! zeta2_prime = (1.0 + nu_hat/(mu_hat_H * chi2)) * zeta2
-
-! ! termH1_2 = ψ_H(ζ'_2)
-! IF (zeta2_prime >= 0.) THEN
-!   termH1_2 = -5.0 * zeta2_prime
-! ELSE
-!   X = (1.0 - 16.0*zeta2_prime)**0.25
-!   termH1_2 = 2.0*ALOG((1.0+X*X)/2.0)
-! END IF
-
-! ! ln(1 + λ / (μH * χ2))
-! termH2_2 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_H * chi2) )
-
-! ! exp(- μH * χ2)
-! termH3_2 = EXP( -mu_hat_H * chi2 )
-
-! PSIH2_hat = termH1_2 * termH2_2 * termH3_2
-
-! 叠加到原来的 PSIH2
-! PSIH2 = PSIH2 - PSIH2_hat
-!================ end of RSL correction for PSIH2 =========================
-
-
-   !   if (I==78 .and. UTYPE == 8) then
-   !        open( 30, file= 'output3.csv',position="append" )!cye-write
-   !        write(30,*) 'Z = ' , Z , ' z_hat = ', z_hat, 'Z / z_hat  = ', Z / z_hat 
-   !       ! write(30,* ) 'termH1 = ',termH1 , 'termH2 = ', termH2 , 'termH3 = ', termH3
-   !       ! write(30,* ) 'termH1 * termH2 * termH3 = ',termH1 * termH2 * termH3
-   !       ! write(30,* ) 'termH1_2 = ',termH1_2 , 'termH2_2 = ', termH2_2 , 'termH3_2 = ', termH3_2
-   !       ! write(30,* ) 'termH1_2 * termH2_2 * termH3_2 = ',termH1_2 * termH2_2 * termH3_2
-   !        write(30,*) ' '
-   !        close(30) 
-   !    endif
-
 
 !
 !m   CHS2 = 0.4*UST/(ALOG(2./Z0H)-PSIH2)
 !
-
-!  ExchCoeffSh2mBare = FrictionVelBare * ConstVonKarman / &
-!                      (log((2.0+RoughLenShBareGrd)/RoughLenShBareGrd) - MoStabCorrShBare2m) from Noah-mp, z0h=z0
-                           
 
 
    XXX10 = (10./Z)*XXX
@@ -2232,56 +1975,7 @@ ENDIF
       PSIH10 = 2.*ALOG((1.+X*X)/2.)
    END IF
 
-!================ RSL correction for PSIM10 (10 m momentum ψ) ================
 
-
-
-! ! 10 m 的 z/L（你原来用的是 XXX10 = (10/Z) * XXX）
-! zeta10 = XXX10         ! 防止混乱，直接用你已有的 XXX10
-
-! ! 10 m 对应的 χ：用 10m 高度代入 (z-zd)/z_hat
-! chi10 = (10.0) / z_hat     ! 你的 Z 已是 (z-zd)，这里高度就是 10 m 相对同一零平面
-
-! ! ζ'_10 = (1 + ν/(μM * χ10)) * ζ10
-! zeta10_prime = (1.0 + nu_hat/(mu_hat_M * chi10)) * zeta10
-
-! ! termM1_10 = ψ_M(ζ'_10) —— 和主层一样的 ψ 公式
-! IF (zeta10_prime >= 0.) THEN
-!   termM1_10 = -5.0 * zeta10_prime
-! ELSE
-!   X = (1.0 - 16.0*zeta10_prime)**0.25
-!   termM1_10 = 2.0*ALOG((1.0+X)/2.0) + ALOG((1.0+X*X)/2.0) - 2.0*ATAN(X) + PI/2.0
-! END IF
-
-! ! ln(1 + λ / (μM * χ10))
-! termM2_10 = (1/lamda_hat)*ALOG( 1.0 + lamda_hat / (mu_hat_M * chi10) )
-
-! ! exp(- μM * χ10)
-! termM3_10 = EXP( -mu_hat_M * chi10 )
-
-! PSIM10_hat = termM1_10 * termM2_10 * termM3_10
-
-! 叠加到原来的 PSIM10
-! PSIM10 = PSIM10 - PSIM10_hat
-!================ end of RSL correction for PSIM10 =========================
-
-
-   ! Z = ZA - ZDC
-   
-   ! Z0LZ = 0.18*ZR*EXP(-Z/(3.5*ZR))+0.02*ZR
-   ! Z0LZ10 = 0.18*ZR*EXP(-10./(3.5*ZR))+0.02*ZR
-   
-   ! Z0HLZ = 0.1*0.18*ZR*EXP(-Z/(3.5*ZR))+0.02*ZR
-   ! Z0HLZ2 = 0.1*0.18*ZR*EXP(-2./(3.5*ZR))+0.02*ZR
-
-   ! PSIX = ALOG(Z/Z0LZ) - PSIM  
-   ! PSIT = ALOG(Z/Z0HLZ) - PSIH 
-
-   ! ! PSIX2 = ALOG(2./Z0LZ) - PSIM2
-   ! PSIT2 = ALOG(2./(Z0HLZ2)) - PSIH2  
-
-   ! PSIX10 = ALOG(10./Z0LZ10) - PSIM10  
-   ! ! PSIT10 = ALOG(10./Z0HLZ2) - PSIH10
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    PSIX = ALOG(Z/Z0) - PSIM  
    PSIT = ALOG(Z/Z0H) - PSIH 
@@ -2308,90 +2002,33 @@ ENDIF
 ! CHS_urban = CH * UA
 ! CHS2_urban = CH2 * SQRT(U2**2 + V2**2)
 
-! if (I==209 .and. UTYPE == 8) then
-!       open( 30, file= 'output3.csv',position="append" )!cye-write
-!       write(30, *) 'CH = ', CH, 'CH2 = ', CH2
-!       write(30, *) 'CHS_urban = ', CHS_urban,  'CHS2_urban = ', CHS2_urban, 'CHS_urban/CHS2_urban = ', CHS_urban/CHS2_urban
-!       write(30, *) 'U2 = ', U2, 'V2 = ', V2, 'SQRT(U2**2 + V2**2) = ', SQRT(U2**2 + V2**2), 'PSIX2/PSIX = ', PSIX2/PSIX
-!       write(30,*) ' '
-!       close(30) 
-! endif
+
 
 CHS_urban = 0.4*UST/( ALOG(Z/Z0H) - PSIH )!cye-add
 CHS2_urban = 0.4*UST/(ALOG(2./(Z0H)) - PSIH2) !cye-add
 
-!    IF (distributed_aerodynamics_option) THEN
-!      TS = TA + FLXTH / (ALPHAC / (RHO * CP))  ! surface potential temp (flux temp)
-!      QS = QA + FLXHUM / (ALPHAC / (RHO * CP)) ! surface humidity
-!    ELSE
 
 
-   TS = TA + FLXTH/CHS_urban    ! surface potential temp (flux temp)
-!    ! TS = (TR*CHR*R + TB * W * CHB + TG*RW*CHG)/(CHR*R + W*CHB + RW*CHG)
-   QS = QA + FLXHUM/CHS_urban  ! surface humidity
+TS = TA + FLXTH/CHS_urban    ! surface potential temp (flux temp)
+QS = QA + FLXHUM/CHS_urban  ! surface humidity
 
 
 
 
-!    ! TS = R*TR + (1-R)*TC
-!    ! TS = RW*TG + (1-R)*TC
-!    !  T_c = (TR * R + TB * W + TG * RW) / (R + RW + W)
-!    ! T_H = (TR*CHR*R + TB * W * CHB + TG*RW*CHG)/(CHR*R + W*CHB + RW*CHG)
-!    ! TS = (LW/SIG_SI/0.97)**0.25       ! Radiative temperature [K]
-!    ! ! TS = (LW/SIG_SI/0.88)**0.25       ! Radiative temperature [K]
-   
-!    END IF
-
-
-!    IF (distributed_aerodynamics_option) THEN
-!    !   CHS2_LOCAL = 0.4 * UST / (ALOG(2. / Z0H) - PSIH2)
      TH2 = TS + (TA - TS) * (CHS_urban / CHS2_urban)
      Q2 = QS + (QA - QS) * (CHS_urban / CHS2_urban)
 
 
-!       !     if (I==209 .and. UTYPE == 8) then
-!       !     open( 30, file= 'output.csv',position="append" )!cye-write
-!       !    !  write(30, *)  I
-!       !    !  write(30, *) 'CHC_URB = ', CHC_URB,  'CHC2_URB = ', CHC2_URB, 'CHC_URB/CHC2_URB = ', CHC_URB/CHC2_URB
-!       !     write(30, *) 'CHS_urban = ', CHS_urban,  'CHS2_urban = ', CHS2_urban, 'CHS_urban/CHS2_urban = ', CHS_urban/CHS2_urban
-!       !    !  write(30, *) 'U2 = ', U2, 'V2 = ', V2, 'SQRT(U2**2 + V2**2) = ', SQRT(U2**2 + V2**2),   'SQRT(U2**2 + V2**2)/ UA = ', SQRT(U2**2 + V2**2)/ UA
-!       !    !  write(30, *) '(SQRT(U2**2 + V2**2) / UA) * (CHS_urban/CHS2_urban) =  ', (SQRT(U2**2 + V2**2)/ UA) * (CHS_urban/CHS2_urban)
-!       !     write(30,*) 'TS,TH2,TA',TS,TH2,TA
-!       !     write(30, *) 'FLXTH', FLXTH * RHOO * CPP 
-!       !    !  write(30,* ) 'PSIT2, PSIT, PSIT2/PSIT ', PSIT2,PSIT,PSIT2/PSIT
-!       !    ! write(30,* ) '   Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2', Z0LZ, Z0LZ10, Z0HLZ, Z0HLZ2
-!       !    ! write(30,* ) 'Z, ZR, Z0, z_hat, ZDC, Z0H ', Z, ZR, Z0, z_hat, ZDC, Z0H
-!       !    ! write(30,* ) 'PSIT2, PSIT, PSIT2/PSIT ', PSIT2,PSIT,PSIT2/PSIT
-!       !    ! write(30,* ) 'ALOG(Z/(Z0H))' , ' PSIH' , ' PSIH_hat', ALOG(Z/(Z0H)) , PSIH , PSIH_hat
-!       !    ! write(30,* ) 'ALOG(2./(Z0H))' , ' PSIH2' , ' PSIH2_hat', ALOG(2./(Z0H)) , PSIH2 , PSIH2_hat
-!       !    !  write(30,*) 'TS,TH2,TA',TS,TH2,TA
-!       !    !  write(30, *)  'PSIX10, PSIX, PSIX10/PSIX' , PSIX10, PSIX, PSIX10/PSIX
-!       !    !  write(30,*)   'ALOG(Z/Z0)' , ' PSIM' , ' PSIM_hat', ALOG(Z/Z0) , PSIM , PSIM_hat
-!       !    !  write(30,*)   'ALOG(10./Z0)' , ' PSIM10' , ' PSIM10_hat', ALOG(10./Z0) , PSIM10 , PSIM10_hat
-!       !    !  write(30,*)   'U1, U10, U10/U1', U1, U10, U10/U1
-!       !    !  write(30,*)   'V1, V10, V10/V1', V1, V10, V10/V1
-!       !     write(30,*) ' '
-!       !     close(30) 
-!       ! endif
+ELSE
 
 
 
-!    ELSE
+TS = (TR * R + TB * W + TG * RW) / (R + RW + W)
+QS = (QS0R * R +  QS0G * RW + QS0B * W)/(R + RW + W)
+TH2 = TC
+Q2 = QC
 
-!    ! TH2 = TS - FLXTH/CHS2_urban
-!    TH2 = TS + (TA-TS) *(CHS_urban/CHS2_urban) !bulk aerodynamic
-!    ! ! TH2 = TS + (TA-TS) *(PSIT2/PSIT) !bulk aerodynamic
-!    Q2 = QS + (QA-QS)*(CHS_urban/CHS2_urban)   ! humidity at 2 m       [-]
-! END IF
-
-
-
-! TS = (TR * R + TB * W + TG * RW) / (R + RW + W)
-! QS = (QS0R * R +  QS0G * RW + QS0B * W)/(R + RW + W)
-! TH2 = TC
-! Q2 = QC
-
-
+ENDIF
 
 
 !   TS = (LW/SIG_SI/0.88)**0.25       ! Radiative temperature [K]
@@ -3554,23 +3191,6 @@ END DO
 
 END IF
 
-         !  open( 30, file= 'output.csv',position="append" )!cye-write
-         !  write(30,*) Z0R_TBL
-         !  close(30) 
-
-         ! open( 30, file= 'output.csv',position="append" )!cye-write
-         ! write(30,*) 'ZR : ',ZR_TBL
-         ! write(30,*) 'ROAD_WIDTH : ',ROAD_WIDTH
-         ! write(30,*) 'ROOF_WIDTH',ROOF_WIDTH
-         ! write(30,*) 'SIGMA_ZED_TBL',SIGMA_ZED_TBL
-         ! write(30,*) 'RW_TBL',RW_TBL
-         ! write(30,*) 'R_TBL',R_TBL
-         ! write(30,*) 'HGT_TBL',HGT_TBL
-         ! write(30,*) 'ZDC_TBL',ZDC_TBL
-         ! write(30,*) 'Z0C_TBL',Z0C_TBL
-         ! write(30,*) 'Z0HC_TBL',Z0HC_TBL
-         ! write(30,*) ' '
-         ! close(30) 
 
    deallocate(roof_width)
    deallocate(road_width)
