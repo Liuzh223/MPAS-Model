@@ -71,10 +71,10 @@ The standard MPAS build then links `*TBL` and `*DATA*` files from `physics_wrf/f
 To run MPAS-Urban with SLUCM, enable urban physics in `namelist.atmosphere`:
 
 ```text
-config_urban_physics = .true.
+config_urban_physics = true
 ```
 
-When `config_urban_physics = .true.`, SLUCM is used as the urban canopy scheme. When `config_urban_physics = .false.`, the model falls back to the standard Noah-MP land surface configuration without urban canopy processes.
+When `config_urban_physics = true`, SLUCM is used as the urban canopy scheme. When `config_urban_physics = false`, the model falls back to the standard Noah-MP land surface configuration without urban canopy processes.
 
 ## Initialization Notes
 
@@ -89,6 +89,8 @@ Warning ZR : Mean Height Table + 2 m is larger than the 1st WRF level
 This warning indicates that the mean building height specified by the urban parameter table, plus the 2 m diagnostic height, exceeds the height of the first atmospheric level. In that case, the lowest atmospheric level is too low for the prescribed urban canopy geometry, which can affect surface-layer exchange and SLUCM coupling.
 
 Users should therefore check the local building-height parameters in `URBPARM*.TBL` and set the vertical grid in `namelist.init_atmosphere` so that the first atmospheric level is above `ZR + 2 m` for the local urban categories used in the domain.
+
+Users may modify `config_specified_zeta_levels` in the `&vertical_grid` namelist group of `namelist.init_atmosphere` to point to a custom vertical-coordinate file. This is useful for urban simulations where the lowest model level must be adjusted to remain above the local urban canopy height constraint.
 
 ## General Usage
 
