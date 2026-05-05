@@ -668,19 +668,14 @@ REAL :: U2,V2,CH2,Z0HR !cye
 
 ! Miao, 2007/01/17, cal. ah
 ! -- start -- Takane-et-al.2024_GMD
-!   if(ahoption==1) then
-   if(ahoption==1 .or. ahoption==2) then
-! -- end -- Takane-et-al.2024_GMD     
    tloc=mod(int(OMG/PI*180./15.+12.+0.5 ),24)
      if(tloc.lt.0) tloc=tloc+24
      if(tloc==0) tloc=24
-   endif
+! -- end -- Takane-et-al.2024_GMD
 ! Yang, 2014/10/08, cal. alh
-   if(alhoption==1) then
      tloc2=mod(int((OMG/PI*180./15.+12.)*2.+0.5 ),48)
      if(tloc2.lt.0) tloc2=tloc2+48
      if(tloc2==0) tloc2=48
-   endif
 
    CALL read_param(I,UTYPE,ZR,SIGMA_ZED,Z0C,Z0HC,ZDC,SVF,R,RW,HGT,  &
                    AH,CAPR,CAPB,CAPG,AKSR,AKSB,AKSG,ALBR,ALBB,    &
