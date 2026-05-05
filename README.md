@@ -1,6 +1,7 @@
 # MPAS-Urban (HKUST)
 
 MPAS-Urban is a HKUST-modified version of the MPAS-Atmosphere core based on the official MPAS-Model v8.2.2 release. This branch extends the Noah-MP land surface scheme with the Single-Layer Urban Canopy Model (SLUCM) for urban climate applications.
+Maintained by Yeer Cao and Zhuo Liu
 
 ## Main Features
 
