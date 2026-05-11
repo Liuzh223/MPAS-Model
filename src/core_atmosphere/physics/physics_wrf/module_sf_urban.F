@@ -3978,7 +3978,7 @@ SUBROUTINE SFCDIF_URB (ZLM,Z0,THZ0,THLM,SFCSPD,AKANDA,AKMS,AKHS,RLMO,CD,ZT_OUT,V
             ZT = EXP (2.0-AKANDA*(SQVISC**2 * USTAR * Z0)**0.25)* Z0
             END IF
 
-            ! ZT = 0.1 * Z0 !cye
+            ZT = 0.1 * Z0 !cye
 
             
             ZSLT = ZLM + ZT
