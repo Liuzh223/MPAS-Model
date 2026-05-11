@@ -1002,6 +1002,13 @@ real(kind=RKIND),dimension(:),pointer :: SR_URB2DXY , SB_URB2DXY , SG_URB2DXY ,R
       ! PSIM(I,J) = PSIM_URB2D(I,J)                      !urban
       ! PSIH(I,J) = PSIH_URB2D(I,J)                      !urban
       ! GZ1OZ0(I,J) = GZ1OZ0_URB2D(I,J)                  !urban
+!--- initialization of local dimensions:
+ its   = mpas_noahmp%its
+ ite   = mpas_noahmp%ite
+ nsoil = mpas_noahmp%nsoil
+ nsnow = mpas_noahmp%nsnow
+ nzsnow = nsnow + nsoil
+
  IF(mpas_noahmp%SF_URBAN_PHYSICS == 1) THEN
 
  call mpas_pool_get_array(diag_physics,'th2m'  ,th2m  )
@@ -1038,14 +1045,6 @@ real(kind=RKIND),dimension(:),pointer :: SR_URB2DXY , SB_URB2DXY , SG_URB2DXY ,R
 
 ENDIF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-!--- initialization of local dimensions:
- its   = mpas_noahmp%its
- ite   = mpas_noahmp%ite
- nsoil = mpas_noahmp%nsoil
- nsnow = mpas_noahmp%nsnow
- nzsnow = nsnow + nsoil
-
 
 !--- update of INOUT variables (with generic LSM equivalent as defined in WRF), i.e. see
 !    lines 162-184 in module NoahmpIOVarType.F90):
